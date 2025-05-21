@@ -1,3 +1,20 @@
+export interface QuestionOption {
+  id: string; // e.g., 'a', 'b', 'c'
+  text: string;
+}
+
+export interface Question {
+  id: string; // Unique ID for the question itself
+  type: 'vocabulary' | 'grammar';
+  // For vocabulary type, 'text' is the word. Component will format as "¿Qué significa '${text}'?"
+  // For grammar type, 'text' is the full question sentence.
+  text: string; 
+  options: QuestionOption[];
+  correctOptionId: string; // The 'id' of the correct QuestionOption
+  translation?: string; // For vocabulary: meaning of the word. For grammar: can be a hint or correct sentence structure.
+  explanation?: string; // Detailed explanation if needed, especially for grammar or complex vocab.
+}
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -9,15 +26,7 @@ export interface UserProfile {
   consecutiveDays: number;
   currentVocabularyLevel: string; // For AI suggestions, e.g., "Novice", "Intermediate"
   learningGoals: string; // For AI suggestions
-}
-
-export interface Question {
-  id: string;
-  type: 'vocabulary' | 'grammar'; // Example types
-  text: string; // e.g., "What is the meaning of 'ubiquitous'?" or "Choose the correct form: ..."
-  options: { text: string; isCorrect: boolean }[];
-  translation?: string; // For vocabulary questions
-  explanation?: string; // For grammar or why an answer is correct/incorrect
+  dataAihint?: string;
 }
 
 export interface LeaderboardUser {
@@ -26,4 +35,5 @@ export interface LeaderboardUser {
   avatarUrl: string;
   xp: number;
   level: 'Novato' | 'Intermedio' | 'Experto';
+  dataAihint?: string;
 }
