@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -41,9 +42,12 @@ export type DailyVocabularySuggestionsOutput = z.infer<
 export async function getDailyVocabularySuggestions(
   input: DailyVocabularySuggestionsInput
 ): Promise<DailyVocabularySuggestionsOutput> {
-  return dailyVocabularySuggestionsFlow(input);
+  // Hardcoded response for simulation
+  return Promise.resolve({ suggestedWords: ["Ebullient", "Ephemeral", "Serendipity"] });
 }
 
+// Original AI-powered flow (commented out for simulation)
+/*
 const dailyVocabularySuggestionsPrompt = ai.definePrompt({
   name: 'dailyVocabularySuggestionsPrompt',
   input: {schema: DailyVocabularySuggestionsInputSchema},
@@ -70,3 +74,12 @@ const dailyVocabularySuggestionsFlow = ai.defineFlow(
     return output!;
   }
 );
+*/
+
+// To restore AI functionality, uncomment the prompt and flow above,
+// and change getDailyVocabularySuggestions to:
+// export async function getDailyVocabularySuggestions(
+// input: DailyVocabularySuggestionsInput
+// ): Promise<DailyVocabularySuggestionsOutput> {
+//   return dailyVocabularySuggestionsFlow(input);
+// }

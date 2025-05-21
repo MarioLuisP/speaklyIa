@@ -1,14 +1,14 @@
+
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { QuizComponent } from '@/components/game/QuizComponent';
 import type { Question } from '@/types';
-import { useRouter } //, useSearchParams  // Uncomment if using query params
-from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from '@/hooks/use-toast'; // Shadcn Toaster
 
-// Mock questions for Practice
-const practiceQuestions: Question[] = [
+// Mock questions for General Practice
+const generalPracticeQuestions: Question[] = [
   { id: 'pq1', type: 'vocabulary', text: 'Translate "apple" to Spanish:', options: [{ text: 'Pera', isCorrect: false }, { text: 'Manzana', isCorrect: true }, { text: 'Naranja', isCorrect: false }], translation: 'Manzana', explanation: '"Apple" is "Manzana" in Spanish.' },
   { id: 'pq2', type: 'vocabulary', text: 'What is "dog" in Spanish?', options: [{ text: 'Gato', isCorrect: false }, { text: 'Perro', isCorrect: true }, { text: 'Pájaro', isCorrect: false }], translation: 'Perro', explanation: '"Dog" is "Perro".' },
   { id: 'pq3', type: 'grammar', text: 'Choose the correct sentence: "They ___ happy."', options: [{ text: 'is', isCorrect: false }, { text: 'are', isCorrect: true }, { text: 'am', isCorrect: false }], explanation: '"They" is plural, so use "are".' },
@@ -21,9 +21,60 @@ const practiceQuestions: Question[] = [
   { id: 'pq10', type: 'vocabulary', text: 'A vehicle with two wheels:', options: [{ text: 'Car', isCorrect: false }, { text: 'Bicycle', isCorrect: true }, { text: 'Bus', isCorrect: false }], translation: 'Bicicleta', explanation: 'A bicycle has two wheels.' },
 ];
 
+// Hardcoded questions for recommended words
+const recommendedPracticeQuestions: Question[] = [
+  {
+    id: 'rec_ebullient',
+    type: 'vocabulary',
+    text: 'Which of these best describes someone who is "Ebullient"?',
+    options: [
+      { text: 'Quiet and reserved', isCorrect: false },
+      { text: 'Cheerful and full of energy', isCorrect: true },
+      { text: 'Sad and lonely', isCorrect: false }
+    ],
+    translation: 'Entusiasta / Vivaz',
+    explanation: '"Ebullient" means overflowing with fervor, enthusiasm, or excitement.'
+  },
+  {
+    id: 'rec_ephemeral',
+    type: 'vocabulary',
+    text: 'If something is "Ephemeral", it means it is:',
+    options: [
+      { text: 'Long-lasting', isCorrect: false },
+      { text: 'Lasting for a very short time', isCorrect: true },
+      { text: 'Very important', isCorrect: false }
+    ],
+    translation: 'Efímero',
+    explanation: '"Ephemeral" describes something that is transient or quickly fading.'
+  },
+  {
+    id: 'rec_serendipity',
+    type: 'vocabulary',
+    text: 'What is "Serendipity"?',
+    options: [
+      { text: 'A planned discovery', isCorrect: false },
+      { text: 'The occurrence of events by chance in a happy or beneficial way', isCorrect: true },
+      { text: 'A type of fruit', isCorrect: false }
+    ],
+    translation: 'Serendipia',
+    explanation: '"Serendipity" is finding valuable or agreeable things not sought for.'
+  }
+];
+
+
 export default function PracticePage() {
   const router = useRouter();
-  // const searchParams = useSearchParams(); // Example: const source = searchParams.get('source');
+  const searchParams = useSearchParams();
+  const source = searchParams.get('source');
+
+  let currentQuestions = generalPracticeQuestions;
+  let quizTitle = "Práctica Diaria";
+
+  if (source === 'recommendations') {
+    currentQuestions = recommendedPracticeQuestions;
+    quizTitle = "Práctica de Palabras Recomendadas";
+  }
+
 
   const handlePracticeComplete = (score: number) => {
     console.log("Practice complete, score:", score);
@@ -32,19 +83,17 @@ export default function PracticePage() {
     toast({
       title: "¡Práctica Completada!",
       description: `Has ganado ${score} puntos de XP. ¡Seguí así!`,
-      variant: "default", // Or use "success" if you add that variant
+      variant: "default", 
     });
     // Potentially navigate or show a summary specific to practice
+    // Consider navigating to home or progress page
+    // router.push('/home'); 
   };
-
-  // TODO: Fetch questions based on user level or 'source' param if available
-  // For now, using mock questions.
-  const currentQuestions = practiceQuestions;
 
   return (
     <QuizComponent
       questions={currentQuestions}
-      quizTitle="Práctica Diaria"
+      quizTitle={quizTitle}
       mode="practice"
       onQuizComplete={handlePracticeComplete}
     />
