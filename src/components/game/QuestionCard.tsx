@@ -54,9 +54,8 @@ export function QuestionCard({
             <button 
               className="btn btn-xs btn-ghost" 
               onClick={() => setShowTranslation(!showTranslation)}
-              // Disable if answered incorrectly and it's not the selected option, or if not answered yet.
-              // Enable if answered (correctly or incorrectly) and it IS the selected option to toggle, or if question is correct.
-              disabled={isAnswered && !question.options.find(o => o.text === selectedOption)?.isCorrect && !isCorrect}
+              // Disable if the question is not yet fully resolved (answered)
+              disabled={!isAnswered}
             >
               {showTranslation ? 'Ocultar' : 'Traducción'}
             </button>
