@@ -102,8 +102,8 @@ export default {
     themes: [
       {
         vocabmastertheme: {
-          "primary": "#F0A720",        // HSL(49, 89%, 54%)
-          "primary-content": "#3E3B33", // Dark text on primary
+          "primary": "#1A73E8",        // HSL(210, 90%, 50%) - New Blue
+          "primary-content": "#FFFFFF", // White text on primary
           "secondary": "#F05F20",      // HSL(19, 89%, 54%) - Using accent as secondary
           "secondary-content": "#FFFFFF", // White text on secondary
           "accent": "#F05F20",         // HSL(19, 89%, 54%)

@@ -17,8 +17,8 @@ body {
     --popover: 49 21% 92%; /* #EDE8D9 */
     --popover-foreground: 49 10% 20%; /* #3E3B33 */
 
-    --primary: 49 89% 54%; /* #F0A720 */
-    --primary-foreground: 49 10% 20%; /* #3E3B33 */
+    --primary: 210 90% 50%; /* #1A73E8 - New Blue */
+    --primary-foreground: 0 0% 100%; /* #FFFFFF - White text on new blue */
 
     --secondary: 19 89% 54%; /* #F05F20 */
     --secondary-foreground: 0 0% 100%; /* #FFFFFF */
@@ -34,7 +34,7 @@ body {
 
     --border: 49 15% 75%; /* #C7C2B4 */
     --input: 49 15% 80%; /* #D4CEC0 - background for inputs */
-    --ring: 49 89% 54%; /* #F0A720 - Primary color for rings */
+    --ring: 210 90% 50%; /* #1A73E8 - New Blue for rings */
     
     --radius: 0.5rem;
 
@@ -58,8 +58,8 @@ body {
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 49 89% 54%; /* Keep primary color consistent */
-    --primary-foreground: 49 10% 10%; /* Darker text for primary on dark */
+    --primary: 210 90% 50%; /* New blue for dark mode */
+    --primary-foreground: 0 0% 100%; /* White text on blue for dark mode */
     --secondary: 19 89% 54%; /* Keep secondary color consistent */
     --secondary-foreground: 0 0% 98%;
     --muted: 240 3.7% 15.9%;
@@ -70,7 +70,7 @@ body {
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 49 89% 60%; /* Slightly lighter primary for ring in dark */
+    --ring: 210 90% 55%; /* Slightly lighter blue for ring in dark */
 
     /* ShadCN Sidebar dark variables - keep for now */
     --sidebar-background: 240 5.9% 10%;
