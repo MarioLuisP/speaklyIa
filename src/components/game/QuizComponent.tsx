@@ -1,23 +1,25 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import type { Question } from '@/types';
 import { QuestionCard } from './QuestionCard';
-import { Button } from '@/components/ui/button'; // Shadcn button
+import { Button } from '@/components/ui/button';
+import Link from 'next/link'; // Import Link
 
 interface QuizComponentProps {
   questions: Question[];
   quizTitle: string;
   mode: 'level-test' | 'practice';
-  onQuizComplete: (score: number, userAnswers?: any[]) => void; // userAnswers for level test analysis
+  onQuizComplete: (score: number, userAnswers?: any[]) => void;
 }
 
 export function QuizComponent({ questions, quizTitle, mode, onQuizComplete }: QuizComponentProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [score, setScore] = useState(0);
-  const [userAnswers, setUserAnswers] = useState<any[]>([]); // For level test
+  const [userAnswers, setUserAnswers] = useState<any[]>([]);
   const [showResults, setShowResults] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(180); // 3 minutes for the quiz, example
+  const [timeLeft, setTimeLeft] = useState(180); 
   const [quizStarted, setQuizStarted] = useState(false);
 
   useEffect(() => {
@@ -38,45 +40,46 @@ export function QuizComponent({ questions, quizTitle, mode, onQuizComplete }: Qu
     return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-
-  const handleAnswer = (isCorrect: boolean, isFirstAttempt: boolean) => {
+  const handleAnswer = (isCorrect: boolean, isFirstAttempt: boolean, selectedOptionText: string, isQuestionResolved: boolean) => {
     let pointsEarned = 0;
     if (isCorrect) {
       if (mode === 'level-test') {
         pointsEarned = isFirstAttempt ? 2 : 1;
-      } else { // practice mode
-        pointsEarned = isFirstAttempt ? 10 : 5; // Example scoring for practice
+      } else { 
+        pointsEarned = isFirstAttempt ? 10 : 5; 
       }
       setScore(prevScore => prevScore + pointsEarned);
     }
 
-    if (mode === 'level-test') {
-      // Find the original question to get the correct answer text
+    if (mode === 'level-test' && isQuestionResolved) {
       const currentQ = questions[currentQuestionIndex];
       const correctAnswerText = currentQ.options.find(opt => opt.isCorrect)?.text || '';
       
-      // Simulate getting selectedAnswer and attempts, actual implementation would be more robust in QuestionCard
-      // For now, this is a simplified representation.
-      // This part needs selectedAnswer to be passed up from QuestionCard correctly.
-      // For simplicity, I'll assume QuestionCard handles attempts internally and we get a final `isCorrect` and `isFirstAttempt`.
-      // The `userAnswers` structure should match `LevelTestAnalysisInput`.
+      let finalAttemptsForAnalysis: number;
+      if (isCorrect) {
+        finalAttemptsForAnalysis = isFirstAttempt ? 1 : 2;
+      } else { 
+        finalAttemptsForAnalysis = 2; // Incorrect and resolved means max attempts used
+      }
+
       const answerDetail = {
         question: currentQ.text,
-        selectedAnswer: "User's selection" , // This needs to be passed from QuestionCard
+        selectedAnswer: selectedOptionText,
         correctAnswer: correctAnswerText,
-        attempts: isCorrect ? (isFirstAttempt ? 1 : 2) : 2, // Simplified
+        attempts: finalAttemptsForAnalysis,
       };
       setUserAnswers(prev => [...prev, answerDetail]);
     }
     
-    // Automatically move to next question after a short delay to see feedback
-    setTimeout(() => {
-      if (currentQuestionIndex < questions.length - 1) {
-        setCurrentQuestionIndex(prevIndex => prevIndex + 1);
-      } else {
-        handleQuizEnd();
-      }
-    }, 1500); // 1.5 second delay
+    if (isQuestionResolved) {
+      setTimeout(() => {
+        if (currentQuestionIndex < questions.length - 1) {
+          setCurrentQuestionIndex(prevIndex => prevIndex + 1);
+        } else {
+          handleQuizEnd();
+        }
+      }, 1500); 
+    }
   };
 
   const handleQuizEnd = () => {
@@ -101,27 +104,35 @@ export function QuizComponent({ questions, quizTitle, mode, onQuizComplete }: Qu
     );
   }
 
-
-  if (showResults) {
+  if (showResults && mode === 'practice') { // Specific display for practice mode completion
     return (
       <div className="text-center p-4">
-        <h2 className="text-2xl font-semibold mb-4">
-          {mode === 'level-test' ? '¡Prueba de Nivel Completada!' : '¡Práctica Completada!'}
-        </h2>
+        <h2 className="text-2xl font-semibold mb-4">¡Práctica Completada!</h2>
         <p className="text-xl mb-2">
           Puntaje Final: <span className="font-bold text-primary">{score}</span> puntos
         </p>
-        {/* Further results details or AI analysis message would go here */}
         <Link href="/home" legacyBehavior>
           <Button className="btn btn-secondary mt-6">Volver al Inicio</Button>
         </Link>
       </div>
     );
   }
+  // Note: For 'level-test', the results display is handled by the LevelTestPage itself after AI analysis.
+  // So, if showResults is true and mode is 'level-test', QuizComponent effectively renders nothing,
+  // allowing LevelTestPage to take over. This is fine. If LevelTestPage needs QuizComponent
+  // to render something generic *before* AI analysis is shown, this structure would need adjustment.
+
 
   if (!questions || questions.length === 0) {
     return <p className="text-center p-4">No hay preguntas disponibles.</p>;
   }
+
+  // If it's level-test mode and results are to be shown, LevelTestPage handles UI.
+  // So, don't render the question card if showResults is true for level-test.
+  if (showResults && mode === 'level-test') {
+      return null; // Or a loading indicator if LevelTestPage isn't immediately ready
+  }
+
 
   const currentQuestion = questions[currentQuestionIndex];
   const progressPercentage = ((currentQuestionIndex + 1) / questions.length) * 100;
@@ -143,9 +154,8 @@ export function QuizComponent({ questions, quizTitle, mode, onQuizComplete }: Qu
         questionNumber={currentQuestionIndex + 1}
         totalQuestions={questions.length}
         onAnswer={handleAnswer}
-        showTranslationButton={mode === 'practice' || mode === 'level-test'} // Show for both for now
+        showTranslationButton={mode === 'practice' || mode === 'level-test'}
       />
     </div>
   );
 }
-

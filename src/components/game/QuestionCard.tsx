@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Question } from '@/types';
@@ -7,7 +8,7 @@ interface QuestionCardProps {
   question: Question;
   questionNumber: number;
   totalQuestions: number;
-  onAnswer: (isCorrect: boolean, isFirstAttempt: boolean, selectedOptionText: string) => void;
+  onAnswer: (isCorrect: boolean, isFirstAttempt: boolean, selectedOptionText: string, isQuestionResolved: boolean) => void;
   showTranslationButton?: boolean;
 }
 
@@ -19,27 +20,29 @@ export function QuestionCard({
   showTranslationButton = true,
 }: QuestionCardProps) {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [isAnswered, setIsAnswered] = useState(false);
+  const [isAnswered, setIsAnswered] = useState(false); // True when question is fully resolved
   const [attempts, setAttempts] = useState(0);
   const [showTranslation, setShowTranslation] = useState(false);
 
   const handleOptionSelect = (optionText: string) => {
-    if (isAnswered && attempts >= (question.translation ? 2 : 1) ) return;
+    if (isAnswered) return; // If question is already fully resolved, do nothing.
 
-    setSelectedOption(optionText);
     const currentAttempts = attempts + 1;
     setAttempts(currentAttempts);
+    setSelectedOption(optionText);
 
     const chosenOption = question.options.find(opt => opt.text === optionText);
     const isCorrect = chosenOption?.isCorrect || false;
-
-    if (isCorrect || currentAttempts >= (question.translation ? 2 : 1)) {
-      setIsAnswered(true);
-      if (question.translation && !isCorrect) {
+    
+    let questionResolved = false;
+    if (isCorrect || currentAttempts >= 2) {
+      setIsAnswered(true); // Mark as fully answered
+      questionResolved = true;
+      if (!isCorrect && question.translation && currentAttempts >= 2) { // Show translation if resolved, incorrect, has translation, and all attempts used
         setShowTranslation(true);
       }
     }
-    onAnswer(isCorrect, currentAttempts === 1, optionText);
+    onAnswer(isCorrect, currentAttempts === 1, optionText, questionResolved);
   };
 
   return (
@@ -51,7 +54,9 @@ export function QuestionCard({
             <button 
               className="btn btn-xs btn-ghost" 
               onClick={() => setShowTranslation(!showTranslation)}
-              disabled={isAnswered && !question.options.find(o => o.text === selectedOption)?.isCorrect}
+              // Disable if answered incorrectly and it's not the selected option, or if not answered yet.
+              // Enable if answered (correctly or incorrectly) and it IS the selected option to toggle, or if question is correct.
+              disabled={isAnswered && !question.options.find(o => o.text === selectedOption)?.isCorrect && !isCorrect}
             >
               {showTranslation ? 'Ocultar' : 'Traducción'}
             </button>
@@ -70,27 +75,37 @@ export function QuestionCard({
           {question.options.map((option, index) => {
             const isSelected = selectedOption === option.text;
             let buttonClass = "btn btn-outline w-full justify-start text-left normal-case";
-            if (isAnswered || (attempts > 0 && isSelected) ) {
+            
+            // Apply styling based on attempts and correctness
+            if (isSelected && attempts > 0) { // If this option has been selected in any attempt
               if (option.isCorrect) {
                 buttonClass = "btn btn-success w-full justify-start text-left normal-case";
-              } else if (isSelected && !option.isCorrect) {
+              } else {
                 buttonClass = "btn btn-error w-full justify-start text-left normal-case";
               }
             }
+            // If question is fully answered, highlight the correct answer even if not selected
+            if (isAnswered && option.isCorrect && !isSelected) {
+                 buttonClass = "btn btn-success btn-outline w-full justify-start text-left normal-case"; // Highlight correct answer
+            }
+             if (isAnswered && option.isCorrect && isSelected) {
+                 buttonClass = "btn btn-success w-full justify-start text-left normal-case";
+            }
+
 
             return (
               <button
                 key={index}
                 className={buttonClass}
                 onClick={() => handleOptionSelect(option.text)}
-                disabled={(isAnswered && attempts >= (question.translation ? 2 : 1)) || (isSelected && !option.isCorrect && attempts >= (question.translation ? 2 : 1))}
+                disabled={isAnswered} // Disable all options if question is fully answered
               >
                 {option.text}
               </button>
             );
           })}
         </div>
-        { isAnswered && attempts >= (question.translation ? 2 : 1) && !question.options.find(o => o.text === selectedOption)?.isCorrect && question.explanation && (
+        {isAnswered && attempts >= 2 && !question.options.find(o => o.text === selectedOption)?.isCorrect && question.explanation && (
            <div role="alert" className="alert alert-warning mt-4">
             <span>Explicación: {question.explanation}</span>
           </div>
