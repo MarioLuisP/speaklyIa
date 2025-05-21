@@ -7,7 +7,7 @@ interface QuestionCardProps {
   question: Question;
   questionNumber: number;
   totalQuestions: number;
-  onAnswer: (isCorrect: boolean, isFirstAttempt: boolean) => void;
+  onAnswer: (isCorrect: boolean, isFirstAttempt: boolean, selectedOptionText: string) => void;
   showTranslationButton?: boolean;
 }
 
@@ -39,7 +39,7 @@ export function QuestionCard({
         setShowTranslation(true);
       }
     }
-    onAnswer(isCorrect, currentAttempts === 1);
+    onAnswer(isCorrect, currentAttempts === 1, optionText);
   };
 
   return (
@@ -68,7 +68,7 @@ export function QuestionCard({
 
         <div className="space-y-3">
           {question.options.map((option, index) => {
-            constisSelected = selectedOption === option.text;
+            const isSelected = selectedOption === option.text;
             let buttonClass = "btn btn-outline w-full justify-start text-left normal-case";
             if (isAnswered || (attempts > 0 && isSelected) ) {
               if (option.isCorrect) {
