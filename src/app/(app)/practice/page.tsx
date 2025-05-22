@@ -6,59 +6,99 @@ import { NewQuizComponent } from '@/components/game/NewQuizComponent'; // Change
 import type { Question } from '@/types';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from '@/hooks/use-toast';
-import { POINTS_PER_PRACTICE_CORRECT_ANSWER } from '@/lib/constants';
+import { POINTS_PER_PRACTICE_CORRECT_ANSWER, POINTS_PER_PRACTICE_SECOND_ATTEMPT } from '@/lib/constants';
 
-// Mock questions for General Practice - Updated Structure
+// New general practice questions
 const generalPracticeQuestions: Question[] = [
   { 
-    id: 'pq1', type: 'vocabulary', text: 'Apple', 
-    options: [{id:'o1', text: 'Pera'}, {id:'o2', text: 'Manzana'}, {id:'o3', text: 'Naranja'}], 
-    correctOptionId: 'o2', translation: 'Manzana', explanation: '"Apple" is "Manzana" in Spanish.' 
+    id: 'pq1', type: 'vocabulary', text: 'What do plants need from the sun to grow properly?', 
+    options: [
+      {id:'o1', text: 'Plants need sunlight to grow healthy and strong.'},
+      {id:'o2', text: 'Plants need darkness to grow healthy and strong.'},
+      {id:'o3', text: 'Plants need music to grow healthy and strong.'}
+    ], 
+    correctOptionId: 'o1', explanation: 'Plants use sunlight to make food and grow.'
   },
   { 
-    id: 'pq2', type: 'vocabulary', text: 'Dog', 
-    options: [{id:'o1', text: 'Gato'}, {id:'o2', text: 'Perro'}, {id:'o3', text: 'Pájaro'}], 
-    correctOptionId: 'o2', translation: 'Perro', explanation: '"Dog" is "Perro".' 
+    id: 'pq2', type: 'vocabulary', text: 'Where do children usually play with water in summer?', 
+    options: [
+      {id:'o1', text: 'Children usually play with water in a pool.'},
+      {id:'o2', text: 'Children usually play with water in a library.'},
+      {id:'o3', text: 'Children usually play with water in a classroom.'}
+    ], 
+    correctOptionId: 'o1', explanation: 'Pools are common places for water play.'
   },
   { 
-    id: 'pq3', type: 'grammar', text: 'They ___ happy.', 
-    options: [{id:'o1', text: 'is'}, {id:'o2', text: 'are'}, {id:'o3', text: 'am'}], 
-    correctOptionId: 'o2', explanation: '"They" is plural, so use "are".' 
+    id: 'pq3', type: 'vocabulary', text: 'What do we call the energy from the sun?', 
+    options: [
+      {id:'o1', text: 'We call the energy from the sun solar energy.'},
+      {id:'o2', text: 'We call the energy from the sun wind energy.'},
+      {id:'o3', text: 'We call the energy from the sun water energy.'}
+    ], 
+    correctOptionId: 'o1', explanation: 'Solar energy comes from the sun.'
   },
   { 
-    id: 'pq4', type: 'vocabulary', text: 'Hot', 
-    options: [{id:'o1', text: 'Warm'}, {id:'o2', text: 'Cold'}, {id:'o3', text: 'Spicy'}], 
-    correctOptionId: 'o2', translation: 'Frío', explanation: '"Cold" is the opposite of "hot".' 
+    id: 'pq4', type: 'vocabulary', text: 'What do we use to play music on a device?', 
+    options: [
+      {id:'o1', text: 'We use speakers to play music on a device.'},
+      {id:'o2', text: 'We use a microwave to play music on a device.'},
+      {id:'o3', text: 'We use a refrigerator to play music on a device.'}
+    ], 
+    correctOptionId: 'o1', explanation: 'Speakers produce sound for music.'
   },
   { 
-    id: 'pq5', type: 'grammar', text: 'I ___ English.', 
-    options: [{id:'o1', text: 'speak'}, {id:'o2', text: 'speaks'}, {id:'o3', text: 'spoke'}], 
-    correctOptionId: 'o1', explanation: 'For "I", use the base form of the verb in present simple.' 
+    id: 'pq5', type: 'vocabulary', text: 'What do seeds need to grow into plants?', 
+    options: [
+      {id:'o1', text: 'Seeds need water to grow into plants.'},
+      {id:'o2', text: 'Seeds need darkness to grow into plants.'},
+      {id:'o3', text: 'Seeds need silence to grow into plants.'}
+    ], 
+    correctOptionId: 'o1', explanation: 'Water helps seeds grow into plants.'
   },
   { 
-    id: 'pq6', type: 'vocabulary', text: 'Library', 
-    options: [{id:'o1', text: 'Bookstore'}, {id:'o2', text: 'Library (place to borrow books)'}, {id:'o3', text: 'Cinema'}], 
-    correctOptionId: 'o2', translation: 'Biblioteca', explanation: 'A library is where you borrow books.' 
+    id: 'pq6', type: 'vocabulary', text: 'What do dogs use to smell things around them?', 
+    options: [
+      {id:'o1', text: 'Dogs use their noses to smell things around them.'},
+      {id:'o2', text: 'Dogs use their ears to smell things around them.'},
+      {id:'o3', text: 'Dogs use their tails to smell things around them.'}
+    ], 
+    correctOptionId: 'o1', explanation: 'Noses are used by dogs to smell.'
   },
   { 
-    id: 'pq7', type: 'grammar', text: 'She is ___ than her brother.', 
-    options: [{id:'o1', text: 'tall'}, {id:'o2', text: 'taller'}, {id:'o3', text: 'tallest'}], 
-    correctOptionId: 'o2', explanation: 'Use the comparative form "taller" for two items.' 
+    id: 'pq7', type: 'vocabulary', text: 'Where do people usually play football with their friends?', 
+    options: [
+      {id:'o1', text: 'People usually play football in a field or park.'},
+      {id:'o2', text: 'People usually play football in a swimming pool.'},
+      {id:'o3', text: 'People usually play football in a library.'}
+    ], 
+    correctOptionId: 'o1', explanation: 'Fields or parks are common for football.'
   },
   { 
-    id: 'pq8', type: 'vocabulary', text: 'Sky', 
-    options: [{id:'o1', text: 'Green'}, {id:'o2', text: 'Blue'}, {id:'o3', text: 'Red'}], 
-    correctOptionId: 'o2', translation: 'Azul', explanation: 'The sky is typically blue on a sunny day (related to "sky").' 
+    id: 'pq8', type: 'vocabulary', text: 'What do we study in science to learn about nature?', 
+    options: [
+      {id:'o1', text: 'We study plants and animals in science to learn about nature.'},
+      {id:'o2', text: 'We study mathematics in science to learn about nature.'},
+      {id:'o3', text: 'We study history in science to learn about nature.'}
+    ], 
+    correctOptionId: 'o1', explanation: 'Science includes studying plants and animals.'
   },
   { 
-    id: 'pq9', type: 'grammar', text: 'He ___ to music right now.', 
-    options: [{id:'o1', text: 'listen'}, {id:'o2', text: 'is listening'}, {id:'o3', text: 'listened'}], 
-    correctOptionId: 'o2', explanation: 'Present continuous for actions happening now.' 
+    id: 'pq9', type: 'vocabulary', text: 'What do we use a computer for at school?', 
+    options: [
+      {id:'o1', text: 'We use a computer for learning and doing homework.'},
+      {id:'o2', text: 'We use a computer for cooking food at school.'},
+      {id:'o3', text: 'We use a computer for playing outside at school.'}
+    ], 
+    correctOptionId: 'o1', explanation: 'Computers help with learning and homework.'
   },
   { 
-    id: 'pq10', type: 'vocabulary', text: 'Bicycle', 
-    options: [{id:'o1', text: 'Car'}, {id:'o2', text: 'Bicycle (vehicle with two wheels)'}, {id:'o3', text: 'Bus'}], 
-    correctOptionId: 'o2', translation: 'Bicicleta', explanation: 'A bicycle has two wheels.' 
+    id: 'pq10', type: 'vocabulary', text: 'What do we call something very fancy and decorative?', 
+    options: [
+      {id:'o1', text: 'We call something very fancy and decorative ornate.'},
+      {id:'o2', text: 'We call something very fancy and decorative simple.'},
+      {id:'o3', text: 'We call something very fancy and decorative plain.'}
+    ], 
+    correctOptionId: 'o1', explanation: 'Ornate means fancy and decorative.'
   },
 ];
 
@@ -133,8 +173,10 @@ export default function PracticePage() {
       questions={currentQuestions}
       quizTitle={quizTitle}
       pointsPerCorrectAnswer={POINTS_PER_PRACTICE_CORRECT_ANSWER}
+      pointsPerSecondAttempt={POINTS_PER_PRACTICE_SECOND_ATTEMPT}
       onQuizComplete={handlePracticeComplete}
       showExplanations={true}
     />
   );
 }
+
