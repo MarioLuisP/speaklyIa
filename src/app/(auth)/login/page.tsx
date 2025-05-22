@@ -28,7 +28,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-base-200 p-4">
-      <Logo size="lg" className="mb-8" />
+      <Logo size="xl" className="mb-8" /> {/* Changed size to xl */}
       <div className="card w-full max-w-sm shadow-2xl bg-base-100">
         <form className="card-body" onSubmit={handleSubmit}>
           <h2 className="card-title text-2xl justify-center mb-4">Iniciar Sesión</h2>
