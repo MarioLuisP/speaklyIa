@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import type { Question } from '@/types';
 import { NAV_PATHS } from "@/lib/constants";
 
-interface QuizSessionDataItem {
+export interface QuizSessionDataItem { // Exportando la interfaz
   questionId: string;
   questionText: string;
   selectedOptionId: string | null;
@@ -107,7 +107,7 @@ export function NewQuizComponent({
       window.speechSynthesis.cancel(); // Cancel any previous speech
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
       utterance.lang = 'en-US';
-      utterance.rate = 0.8; // Slower rate (1 is normal, 0.5 is half speed)
+      utterance.rate = 0.8; 
       window.speechSynthesis.speak(utterance);
     } else {
       console.warn('Speech Synthesis API no está soportada en este navegador.');
@@ -125,6 +125,7 @@ export function NewQuizComponent({
 
     try {
       const encodedQuery = encodeURIComponent(currentQuestion.text);
+      // Using MyMemory API
       const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodedQuery}&langpair=en|es`);
 
       if (!response.ok) {
@@ -132,9 +133,9 @@ export function NewQuizComponent({
         let errorMessage = `Error de traducción (${response.status})`;
         try {
           errorData = await response.json();
-          if (errorData?.responseDetails) {
+          if (errorData?.responseDetails) { // MyMemory specific error field
             errorMessage += `: ${errorData.responseDetails}`;
-          } else if (errorData?.message) {
+          } else if (errorData?.message) { // Generic message field
              errorMessage += `: ${errorData.message}`;
           } else if (response.statusText) {
             errorMessage += `: ${response.statusText}`;
@@ -142,7 +143,6 @@ export function NewQuizComponent({
             errorMessage += ": Error desconocido del servidor";
           }
         } catch (e) {
-          // Failed to parse error as JSON, or statusText was empty
            if (response.statusText) {
             errorMessage += `: ${response.statusText}`;
           } else {
@@ -153,9 +153,10 @@ export function NewQuizComponent({
       }
 
       const data = await response.json();
+      // MyMemory specific success field
       if (data.responseData && data.responseData.translatedText) {
         setTranslatedText(data.responseData.translatedText);
-      } else if (data.responseDetails) {
+      } else if (data.responseDetails) { // MyMemory specific error field even on 200 OK
         throw new Error(`Error de traducción: ${data.responseDetails}`);
       } else {
         throw new Error("Respuesta de traducción no válida o vacía.");
@@ -177,11 +178,9 @@ export function NewQuizComponent({
 
     setSelectedOptionId(optionId);
     
-    // If there was an "incorrect" feedback, clear it when user makes a new selection for 2nd attempt
     if (feedback && feedback.type === 'incorrect') { 
       setFeedback(null); 
     }
-    // Clear translation if user interacts with options
     if (translatedText || translationError) {
         setTranslatedText(null);
         setTranslationError(null);
@@ -232,7 +231,7 @@ export function NewQuizComponent({
         setTimeout(() => {
           if (currentQuestionAttempts === 1 && !questionIsResolved && feedback?.type === 'incorrect') { 
              setFeedback(null);
-             setSelectedOptionId(null); // Force user to re-select for 2nd attempt
+             setSelectedOptionId(null); 
           }
           setIsSubmitting(false); 
         }, 1500); 
@@ -476,7 +475,7 @@ export function NewQuizComponent({
             </div>
           )}
 
-          {feedback && !isTranslating && ( 
+          {feedback && !isTranslating && !isTranslating && ( 
             <div
               className={`p-3 rounded-md flex items-center text-sm animate-fadeIn
                 ${feedback.type === 'correct' ? "bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400"
@@ -508,4 +507,3 @@ export function NewQuizComponent({
     </div>
   );
 }
-
