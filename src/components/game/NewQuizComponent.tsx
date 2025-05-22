@@ -104,9 +104,9 @@ export function NewQuizComponent({
     if (!currentQuestion) return;
     const textToSpeak = currentQuestion.text;
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+      window.speechSynthesis.cancel(); // Cancel any previous speech
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      utterance.lang = 'en-US';
+      utterance.lang = 'en-US'; // Assuming English text for now
       window.speechSynthesis.speak(utterance);
     } else {
       console.warn('Speech Synthesis API no está soportada en este navegador.');
@@ -154,9 +154,12 @@ export function NewQuizComponent({
 
   const handleOptionSelect = (optionId: string) => {
     if (questionIsResolved || isSubmitting) return;
-    if (currentQuestionAttempts === 1 && optionId === firstAttemptIncorrectOptionId) return; 
-
-    setSelectedOptionId(optionId);
+    // Allow selection if it's the first attempt OR
+    // if it's the second attempt and the selected option is NOT the one failed in the first attempt
+    if (currentQuestionAttempts === 0 || (currentQuestionAttempts === 1 && optionId !== firstAttemptIncorrectOptionId)) {
+      setSelectedOptionId(optionId);
+    }
+    
     if (feedback && feedback.type !== 'correct' && feedback.type !== 'finalIncorrect') {
       setFeedback(null); 
     }
@@ -168,8 +171,9 @@ export function NewQuizComponent({
   };
 
   const handleSubmitOrNext = () => {
-    if (quizCompleted || isSubmitting) return;
+    if (quizCompleted) return; // Early exit if quiz is fully completed
 
+    // If question is resolved, this button means "Next Question" or "View Results"
     if (questionIsResolved) { 
       if (currentQuestionIndex < totalQuestions - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
@@ -177,78 +181,87 @@ export function NewQuizComponent({
         setQuizCompleted(true);
         onQuizComplete(score, quizSessionData);
       }
-    } else { 
-      if (!selectedOptionId) {
-        setFeedback({type: 'info', message: "Por favor, seleccioná una respuesta."});
-        return;
-      }
+      return; // Important: exit after handling next/complete
+    }
 
-      setIsSubmitting(true);
+    // Logic for "Verify Answer" or "Confirm 2nd Chance"
+    if (!selectedOptionId) {
+      setFeedback({type: 'info', message: "Por favor, seleccioná una respuesta."});
+      return;
+    }
 
-      const attemptsForThisTurn = currentQuestionAttempts + 1;
-      const isCorrect = selectedOptionId === currentQuestion.correctOptionId;
-      let pointsEarnedThisTurn = 0;
+    if (isSubmitting) return; // Prevent double submission while processing
 
-      const selectedOpt = currentQuestion.options.find(o => o.id === selectedOptionId);
-      const correctOpt = currentQuestion.options.find(o => o.id === currentQuestion.correctOptionId);
+    setIsSubmitting(true);
 
-      if (isCorrect) {
-        pointsEarnedThisTurn = attemptsForThisTurn === 1 ? pointsPerCorrectAnswer : pointsPerSecondAttempt;
-        setScore(prevScore => prevScore + pointsEarnedThisTurn);
+    const attemptsForThisTurn = currentQuestionAttempts + 1;
+    const isCorrect = selectedOptionId === currentQuestion.correctOptionId;
+    let pointsEarnedThisTurn = 0;
+    let questionAttemptResolved = false; // Local flag for this attempt
+
+    const selectedOpt = currentQuestion.options.find(o => o.id === selectedOptionId);
+    const correctOpt = currentQuestion.options.find(o => o.id === currentQuestion.correctOptionId);
+
+    if (isCorrect) {
+      pointsEarnedThisTurn = attemptsForThisTurn === 1 ? pointsPerCorrectAnswer : (pointsPerSecondAttempt || 0);
+      setScore(prevScore => prevScore + pointsEarnedThisTurn);
+      setQuestionIsResolved(true);
+      questionAttemptResolved = true;
+      setFeedback({type: 'correct', message: `¡Correcto! Ganaste +${pointsEarnedThisTurn} puntos.`});
+    } else { // Incorrect
+      if (attemptsForThisTurn === 1) { 
+        setCurrentQuestionAttempts(1);
+        setFirstAttemptIncorrectOptionId(selectedOptionId);
+        setFeedback({type: 'incorrect', message: "Respuesta incorrecta. ¡Intentá de nuevo!"});
+        
+        // After showing "Incorrect", reset for the second attempt
+        setTimeout(() => {
+          // Only clear feedback if it's still the first incorrect attempt feedback
+          if (currentQuestionAttempts === 1 && !questionIsResolved && feedback?.type === 'incorrect') { 
+             setFeedback(null);
+             setSelectedOptionId(null); // Crucial: reset selection for 2nd attempt UI
+          }
+          setIsSubmitting(false); // Allow next action
+        }, 1500); 
+        return; // IMPORTANT: Early return to wait for timeout and user's 2nd choice
+      } else { // Second attempt incorrect
         setQuestionIsResolved(true);
-        setFeedback({type: 'correct', message: `¡Correcto! Ganaste +${pointsEarnedThisTurn} puntos.`});
-      } else { 
-        if (attemptsForThisTurn === 1) { 
-          setCurrentQuestionAttempts(1);
-          setFirstAttemptIncorrectOptionId(selectedOptionId);
-          setFeedback({type: 'incorrect', message: "Respuesta incorrecta. ¡Intentá de nuevo!"});
-          
-          setTimeout(() => {
-            if (currentQuestionAttempts === 1 && !questionIsResolved) { 
-               setFeedback(null);
-               setSelectedOptionId(null); // Crucial: reset selection for 2nd attempt UI
-            }
-            setIsSubmitting(false);
-          }, 1500); 
-          return; 
-        } else { 
-          setQuestionIsResolved(true);
-          let finalFeedbackMessage = 'Respuesta incorrecta.';
-          if (showExplanations && correctOpt) {
-             const correctOptionText = correctOpt.text;
-            if (currentQuestion.type === 'vocabulary' && currentQuestion.translation) {
-              finalFeedbackMessage = `Incorrecto. La palabra "${currentQuestion.text}" significa: ${currentQuestion.translation}. La respuesta correcta era "${correctOptionText}".`;
-            } else if (currentQuestion.explanation) {
-              finalFeedbackMessage = `Incorrecto. ${currentQuestion.explanation}. La respuesta correcta era "${correctOptionText}".`;
-            } else {
-               finalFeedbackMessage = `Incorrecto. La respuesta correcta era "${correctOptionText}".`;
-            }
-          } else if (showExplanations && correctOpt) {
-             finalFeedbackMessage = `Incorrecto. La respuesta correcta era "${correctOpt.text}".`;
+        questionAttemptResolved = true;
+        let finalFeedbackMessage = 'Respuesta incorrecta.';
+        if (showExplanations && correctOpt) {
+           const correctOptionText = correctOpt.text;
+          if (currentQuestion.type === 'vocabulary' && currentQuestion.translation) {
+            finalFeedbackMessage = `Incorrecto. La palabra "${currentQuestion.text}" significa: ${currentQuestion.translation}. La respuesta correcta era "${correctOptionText}".`;
+          } else if (currentQuestion.explanation) {
+            finalFeedbackMessage = `Incorrecto. ${currentQuestion.explanation}. La respuesta correcta era "${correctOptionText}".`;
+          } else {
+             finalFeedbackMessage = `Incorrecto. La respuesta correcta era "${correctOptionText}".`;
           }
-          setFeedback({type: 'finalIncorrect', message: finalFeedbackMessage});
+        } else if (showExplanations && correctOpt) {
+           finalFeedbackMessage = `Incorrecto. La respuesta correcta era "${correctOpt.text}".`;
         }
-      }
-      
-      if (questionIsResolved || attemptsForThisTurn === 2) { // Log data if resolved or second attempt
-        setQuizSessionData(prevData => [
-          ...prevData,
-          {
-            questionId: currentQuestion.id, questionText: currentQuestion.text,
-            selectedOptionId: selectedOptionId, selectedOptionText: selectedOpt?.text || '',
-            correctOptionId: currentQuestion.correctOptionId, correctOptionText: correctOpt?.text || '',
-            isCorrect: isCorrect, attempts: attemptsForThisTurn
-          }
-        ]);
-      }
-      
-      if (questionIsResolved || (!isCorrect && attemptsForThisTurn < 2)) {
-         // Only set isSubmitting to false if it's not waiting for the timeout
-        if (!(!isCorrect && attemptsForThisTurn === 1)) {
-            setIsSubmitting(false);
-        }
+        setFeedback({type: 'finalIncorrect', message: finalFeedbackMessage});
       }
     }
+    
+    // Log data if the question attempt is resolved (correct, or 2nd incorrect)
+    if (questionAttemptResolved) {
+      setQuizSessionData(prevData => [
+        ...prevData,
+        {
+          questionId: currentQuestion.id, questionText: currentQuestion.text,
+          selectedOptionId: selectedOptionId, selectedOptionText: selectedOpt?.text || '',
+          correctOptionId: currentQuestion.correctOptionId, correctOptionText: correctOpt?.text || '',
+          isCorrect: isCorrect, attempts: attemptsForThisTurn
+        }
+      ]);
+    }
+    
+    // If the question attempt was resolved in this turn (correct, or 2nd incorrect), no longer submitting
+    if (questionAttemptResolved) {
+        setIsSubmitting(false);
+    }
+    // Note: if it was a first incorrect attempt, we returned early and setTimeout handles setIsSubmitting(false)
   };
 
   const handleRepeatPractice = () => {
@@ -389,28 +402,28 @@ export function NewQuizComponent({
               >
                 {currentQuestion.options.map((option) => {
                   const isCurrentlySelected = selectedOptionId === option.id;
-                  const isFirstIncorrect = firstAttemptIncorrectOptionId === option.id;
+                  const isFirstIncorrectAttemptedOption = firstAttemptIncorrectOptionId === option.id;
                   let optionClass = 'hover:bg-accent/10';
 
                   if (questionIsResolved) { 
                     if (option.id === currentQuestion.correctOptionId) {
                       optionClass = 'border-green-500 bg-green-500/10 ring-2 ring-green-500';
-                    } else if (selectedOptionId === option.id && option.id !== currentQuestion.correctOptionId) { 
+                    } else if (isCurrentlySelected && option.id !== currentQuestion.correctOptionId) { 
                       optionClass = 'border-destructive bg-destructive/10 ring-2 ring-destructive';
                     } else { 
                       optionClass = 'opacity-70 cursor-not-allowed';
                     }
-                  } else if (currentQuestionAttempts === 1) { 
-                    if (isFirstIncorrect) { 
+                  } else if (currentQuestionAttempts === 1) { // Second attempt ongoing
+                    if (isFirstIncorrectAttemptedOption) { 
                          optionClass = 'border-destructive bg-destructive/10 opacity-60 cursor-not-allowed';
                     } else if (isCurrentlySelected) { 
                          optionClass = 'border-primary ring-2 ring-primary bg-primary/10';
                     }
-                  } else if (isCurrentlySelected) { 
+                  } else if (isCurrentlySelected) { // First attempt ongoing
                      optionClass = 'border-primary ring-2 ring-primary bg-primary/10';
                   }
                   
-                  const isDisabledIndividually = questionIsResolved || isSubmitting || (currentQuestionAttempts === 1 && isFirstIncorrect);
+                  const isDisabledIndividually = questionIsResolved || isSubmitting || (currentQuestionAttempts === 1 && isFirstIncorrectAttemptedOption);
 
                   return (
                     <Label
@@ -477,7 +490,10 @@ export function NewQuizComponent({
           <Button
             size="lg"
             onClick={handleSubmitOrNext}
-            disabled={isSubmitting || (!questionIsResolved && !selectedOptionId && currentQuestionAttempts === 0) || (!questionIsResolved && !selectedOptionId && currentQuestionAttempts === 1)}
+            disabled={
+              isSubmitting || // Always disable if submitting
+              (!questionIsResolved && !selectedOptionId) // Disable if not resolved AND no option selected (relevant for 2nd attempt start)
+            }
             className="w-full sm:w-auto"
           >
             {isSubmitting && !questionIsResolved ? <Loader2 className="animate-spin" /> : getButtonText()}
@@ -487,3 +503,4 @@ export function NewQuizComponent({
     </div>
   );
 }
+
