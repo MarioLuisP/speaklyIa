@@ -93,27 +93,51 @@ export function NewQuizComponent({
   const totalQuestions = questions.length;
   const currentQuestion = questions[currentQuestionIndex];
 
+  const handleTextToSpeech = () => {
+    if (!currentQuestion) return;
+
+    const textToSpeak = currentQuestion.text; // Leer la palabra o frase base de la pregunta
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel(); // Cancelar cualquier discurso anterior
+
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      // Asumimos que el texto original de la pregunta (currentQuestion.text) está en inglés
+      utterance.lang = 'en-US'; 
+      // utterance.rate = 1; // Velocidad normal
+      // utterance.pitch = 1; // Tono normal
+      window.speechSynthesis.speak(utterance);
+    } else {
+      console.warn('Speech Synthesis API no está soportada en este navegador.');
+      setFeedback({ type: 'info', message: 'La lectura de voz no está soportada en este navegador.' });
+      setTimeout(() => setFeedback(null), 2000);
+    }
+  };
+
+
   const handleOptionSelect = (optionId: string) => {
     if (questionIsResolved || isSubmitting) return;
-    if (currentQuestionAttempts === 1 && optionId === firstAttemptIncorrectOptionId) return; // Prevent re-selecting the first incorrect option
+    // Permitir seleccionar cualquier opción si es el primer intento,
+    // o si es el segundo intento y la opción es diferente a la del primer fallo.
+    if (currentQuestionAttempts === 1 && optionId === firstAttemptIncorrectOptionId) return; 
 
     setSelectedOptionId(optionId);
     if (feedback && feedback.type !== 'correct' && feedback.type !== 'finalIncorrect') {
-      setFeedback(null);
+      setFeedback(null); // Limpiar feedback de info o de primer intento incorrecto al cambiar selección
     }
   };
 
   const handleSubmitOrNext = () => {
     if (quizCompleted || isSubmitting) return;
 
-    if (questionIsResolved) {
+    if (questionIsResolved) { // Lógica para "Siguiente Pregunta" o "Ver Resultados"
       if (currentQuestionIndex < totalQuestions - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
       } else {
         setQuizCompleted(true);
         onQuizComplete(score, quizSessionData);
       }
-    } else {
+    } else { // Lógica para "Verificar Respuesta" o "Confirmar 2ª Oportunidad"
       if (!selectedOptionId) {
         setFeedback({type: 'info', message: "Por favor, seleccioná una respuesta."});
         return;
@@ -144,18 +168,22 @@ export function NewQuizComponent({
         ]);
         setIsSubmitting(false);
       } else { // Incorrect
-        if (attemptsForThisTurn === 1) {
+        if (attemptsForThisTurn === 1) { // Primer intento incorrecto
           setCurrentQuestionAttempts(1);
           setFirstAttemptIncorrectOptionId(selectedOptionId);
           setFeedback({type: 'incorrect', message: "Respuesta incorrecta. ¡Intentá de nuevo!"});
-
+          
+          // No limpiar selectedOptionId aquí, para que el usuario vea su error
+          // y luego pueda seleccionar otra opción. El botón cambiará a "Confirmar 2ª Oportunidad".
+          // Después de un tiempo, el feedback se limpia para no ser molesto.
           setTimeout(() => {
-            setFeedback(null);
-            setSelectedOptionId(null); // Clear selection to force a new choice
+            if (currentQuestionAttempts === 1 && !questionIsResolved) { // Solo limpiar si no se resolvió entretanto
+               setFeedback(null);
+            }
             setIsSubmitting(false);
-          }, 1500);
-          return;
-        } else { // Second attempt incorrect
+          }, 1500); // Mantener el feedback visible por 1.5s
+          return; // Salir temprano para que el usuario pueda hacer su 2do intento
+        } else { // Segundo intento incorrecto
           setQuestionIsResolved(true);
           let finalFeedbackMessage = 'Respuesta incorrecta.';
           if (showExplanations && correctOpt) {
@@ -189,20 +217,21 @@ export function NewQuizComponent({
     setScore(0);
     setQuizCompleted(false);
     setQuizSessionData([]);
-    resetQuestionState(); // Ensure full reset
+    resetQuestionState(); 
   };
 
   const getButtonText = () => {
     if (questionIsResolved) {
       return currentQuestionIndex < totalQuestions - 1 ? "Siguiente Pregunta" : "Ver Resultados";
     }
+    // Si es el primer intento (attempts === 0), o si es el segundo intento (attempts === 1) Y aún no se resolvió:
     if (currentQuestionAttempts === 0) {
       return "Verificar Respuesta";
     }
     if (currentQuestionAttempts === 1 && !questionIsResolved) {
       return "Confirmar 2ª Oportunidad";
     }
-    return "Verificar Respuesta";
+    return "Verificar Respuesta"; // Fallback
   };
 
   if (quizCompleted) {
@@ -221,7 +250,7 @@ export function NewQuizComponent({
             </p>
             <p className="text-muted-foreground">
               {isLevelTest
-                ? "La IA analizará tus resultados..."
+                ? "La IA analizará tus resultados para asignarte un nivel."
                 : "¡Seguí así para alcanzar el próximo nivel!"}
             </p>
           </CardContent>
@@ -252,13 +281,18 @@ export function NewQuizComponent({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-primary"
+                    onClick={handleTextToSpeech}
+                  >
                     <Volume2 size={18} />
                     <span className="sr-only">Leer pregunta</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Leer pregunta (Próximamente)</p>
+                  <p>Leer pregunta</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -312,26 +346,28 @@ export function NewQuizComponent({
               >
                 {currentQuestion.options.map((option) => {
                   const isCurrentlySelected = selectedOptionId === option.id;
-                  const isFirstIncorrect = firstAttemptIncorrectOptionId === option.id;
+                  const isFirstAttemptFail = firstAttemptIncorrectOptionId === option.id;
                   let optionClass = 'hover:bg-accent/10';
 
-                  if (questionIsResolved) {
+                  if (questionIsResolved) { // Feedback final cuando la pregunta está resuelta
                     if (option.id === currentQuestion.correctOptionId) {
                       optionClass = 'border-green-500 bg-green-500/10 ring-2 ring-green-500';
-                    } else if (isCurrentlySelected && option.id !== currentQuestion.correctOptionId) {
+                    } else if (isCurrentlySelected && option.id !== currentQuestion.correctOptionId) { // La incorrecta que SELECCIONÓ el usuario
                       optionClass = 'border-destructive bg-destructive/10 ring-2 ring-destructive';
-                    } else {
+                    } else { // Otras opciones no seleccionadas y no correctas
                       optionClass = 'opacity-70 cursor-not-allowed';
                     }
-                  } else if (currentQuestionAttempts === 1) {
-                    if (isFirstIncorrect) {
+                  } else if (currentQuestionAttempts === 1) { // Durante el segundo intento
+                    if (isFirstAttemptFail) { // La que falló en el primer intento
                          optionClass = 'border-destructive bg-destructive/10 opacity-60 cursor-not-allowed';
-                    } else if (isCurrentlySelected) {
+                    } else if (isCurrentlySelected) { // La que está seleccionando para el segundo intento
                          optionClass = 'border-primary ring-2 ring-primary bg-primary/10';
                     }
-                  } else if (isCurrentlySelected) {
+                  } else if (isCurrentlySelected) { // Durante el primer intento, la seleccionada actual
                      optionClass = 'border-primary ring-2 ring-primary bg-primary/10';
                   }
+                  
+                  const isDisabled = questionIsResolved || isSubmitting || (currentQuestionAttempts === 1 && isFirstAttemptFail);
 
                   return (
                     <Label
@@ -339,12 +375,12 @@ export function NewQuizComponent({
                       htmlFor={`option-${option.id}`}
                       className={`flex items-center space-x-3 p-3 border rounded-md transition-colors
                                   ${optionClass}
-                                  ${(questionIsResolved || isSubmitting || (currentQuestionAttempts === 1 && isFirstIncorrect)) ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                  ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       <RadioGroupItem
                         value={option.id}
                         id={`option-${option.id}`}
-                        disabled={questionIsResolved || isSubmitting || (currentQuestionAttempts === 1 && isFirstIncorrect)}
+                        disabled={isDisabled}
                         className="shrink-0"
                       />
                       <span className="text-base flex-1">{option.text}</span>
@@ -360,7 +396,7 @@ export function NewQuizComponent({
               className={`p-3 rounded-md flex items-center text-sm animate-fadeIn
                 ${feedback.type === 'correct' ? "bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400"
                   : feedback.type === 'info' ? "bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-400"
-                  : "bg-destructive/10 border border-destructive/30 text-destructive dark:text-red-400"
+                  : "bg-destructive/10 border border-destructive/30 text-destructive dark:text-red-400" // Para 'incorrect' y 'finalIncorrect'
                 }`}
             >
               {feedback.type === 'correct' ? <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
@@ -387,3 +423,4 @@ export function NewQuizComponent({
     </div>
   );
 }
+
