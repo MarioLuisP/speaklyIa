@@ -9,7 +9,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, CheckCircle2, Award, Info } from "lucide-react";
+import { AlertCircle, CheckCircle2, Award, Info, Volume2, Languages } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Question } from '@/types';
 import { NAV_PATHS } from "@/lib/constants";
 
@@ -17,28 +18,28 @@ interface QuizSessionDataItem {
   questionId: string;
   questionText: string;
   selectedOptionId: string | null;
-  selectedOptionText: string; 
+  selectedOptionText: string;
   correctOptionId: string;
-  correctOptionText: string; 
+  correctOptionText: string;
   isCorrect: boolean;
-  attempts: number; 
+  attempts: number;
 }
 
 interface NewQuizComponentProps {
   questions: Question[];
   quizTitle: string;
   pointsPerCorrectAnswer: number;
-  pointsPerSecondAttempt?: number; 
+  pointsPerSecondAttempt?: number;
   onQuizComplete: (score: number, sessionData: QuizSessionDataItem[]) => void;
   showExplanations?: boolean;
-  isLevelTest?: boolean; 
+  isLevelTest?: boolean;
 }
 
 export function NewQuizComponent({
   questions,
   quizTitle,
   pointsPerCorrectAnswer,
-  pointsPerSecondAttempt = Math.floor(pointsPerCorrectAnswer / 2), 
+  pointsPerSecondAttempt = Math.floor(pointsPerCorrectAnswer / 2),
   onQuizComplete,
   showExplanations = true,
   isLevelTest = false,
@@ -48,14 +49,14 @@ export function NewQuizComponent({
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [quizCompleted, setQuizCompleted] = useState(false);
-  
-  const [currentQuestionAttempts, setCurrentQuestionAttempts] = useState(0); // 0, 1, or 2
-  const [questionIsResolved, setQuestionIsResolved] = useState(false); 
+
+  const [currentQuestionAttempts, setCurrentQuestionAttempts] = useState(0);
+  const [questionIsResolved, setQuestionIsResolved] = useState(false);
   const [firstAttemptIncorrectOptionId, setFirstAttemptIncorrectOptionId] = useState<string | null>(null);
-  
+
   const [quizSessionData, setQuizSessionData] = useState<QuizSessionDataItem[]>([]);
   const [feedback, setFeedback] = useState<{type: 'correct' | 'incorrect' | 'info' | 'finalIncorrect', message: string} | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false); // To prevent double clicks
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resetQuestionState = useCallback(() => {
     setSelectedOptionId(null);
@@ -94,38 +95,36 @@ export function NewQuizComponent({
 
   const handleOptionSelect = (optionId: string) => {
     if (questionIsResolved || isSubmitting) return;
-    // Allow selection if it's the first attempt OR 
-    // if it's the second attempt and the selected option is not the one from the first incorrect attempt.
-    if (currentQuestionAttempts < 1 || (currentQuestionAttempts === 1 && optionId !== firstAttemptIncorrectOptionId)) {
-      setSelectedOptionId(optionId);
-      if (feedback && feedback.type !== 'correct' && feedback.type !== 'finalIncorrect') { 
-        setFeedback(null);
-      }
+    if (currentQuestionAttempts === 1 && optionId === firstAttemptIncorrectOptionId) return; // Prevent re-selecting the first incorrect option
+
+    setSelectedOptionId(optionId);
+    if (feedback && feedback.type !== 'correct' && feedback.type !== 'finalIncorrect') {
+      setFeedback(null);
     }
   };
 
   const handleSubmitOrNext = () => {
     if (quizCompleted || isSubmitting) return;
 
-    if (questionIsResolved) { 
+    if (questionIsResolved) {
       if (currentQuestionIndex < totalQuestions - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
       } else {
         setQuizCompleted(true);
         onQuizComplete(score, quizSessionData);
       }
-    } else { 
+    } else {
       if (!selectedOptionId) {
         setFeedback({type: 'info', message: "Por favor, seleccioná una respuesta."});
         return;
       }
-      
-      setIsSubmitting(true); 
+
+      setIsSubmitting(true);
 
       const attemptsForThisTurn = currentQuestionAttempts + 1;
       const isCorrect = selectedOptionId === currentQuestion.correctOptionId;
       let pointsEarnedThisTurn = 0;
-      
+
       const selectedOpt = currentQuestion.options.find(o => o.id === selectedOptionId);
       const correctOpt = currentQuestion.options.find(o => o.id === currentQuestion.correctOptionId);
 
@@ -140,7 +139,7 @@ export function NewQuizComponent({
             questionId: currentQuestion.id, questionText: currentQuestion.text,
             selectedOptionId: selectedOptionId, selectedOptionText: selectedOpt?.text || '',
             correctOptionId: currentQuestion.correctOptionId, correctOptionText: correctOpt?.text || '',
-            isCorrect: true, attempts: attemptsForThisTurn 
+            isCorrect: true, attempts: attemptsForThisTurn
           }
         ]);
         setIsSubmitting(false);
@@ -149,23 +148,24 @@ export function NewQuizComponent({
           setCurrentQuestionAttempts(1);
           setFirstAttemptIncorrectOptionId(selectedOptionId);
           setFeedback({type: 'incorrect', message: "Respuesta incorrecta. ¡Intentá de nuevo!"});
-          
+
           setTimeout(() => {
-            setFeedback(null); 
-            setSelectedOptionId(null); 
-            setIsSubmitting(false); 
+            setFeedback(null);
+            setSelectedOptionId(null); // Clear selection to force a new choice
+            setIsSubmitting(false);
           }, 1500);
-          return; 
+          return;
         } else { // Second attempt incorrect
           setQuestionIsResolved(true);
           let finalFeedbackMessage = 'Respuesta incorrecta.';
           if (showExplanations && correctOpt) {
+             const correctOptionText = correctOpt.text;
             if (currentQuestion.type === 'vocabulary' && currentQuestion.translation) {
-              finalFeedbackMessage = `Incorrecto. La palabra "${currentQuestion.text}" significa: ${currentQuestion.translation}. La respuesta correcta era "${correctOpt.text}".`;
+              finalFeedbackMessage = `Incorrecto. La palabra "${currentQuestion.text}" significa: ${currentQuestion.translation}. La respuesta correcta era "${correctOptionText}".`;
             } else if (currentQuestion.explanation) {
-              finalFeedbackMessage = `Incorrecto. ${currentQuestion.explanation}. La respuesta correcta era "${correctOpt.text}".`;
+              finalFeedbackMessage = `Incorrecto. ${currentQuestion.explanation}. La respuesta correcta era "${correctOptionText}".`;
             } else {
-               finalFeedbackMessage = `Incorrecto. La respuesta correcta era "${correctOpt.text}".`;
+               finalFeedbackMessage = `Incorrecto. La respuesta correcta era "${correctOptionText}".`;
             }
           }
           setFeedback({type: 'finalIncorrect', message: finalFeedbackMessage});
@@ -175,7 +175,7 @@ export function NewQuizComponent({
               questionId: currentQuestion.id, questionText: currentQuestion.text,
               selectedOptionId: selectedOptionId, selectedOptionText: selectedOpt?.text || '',
               correctOptionId: currentQuestion.correctOptionId, correctOptionText: correctOpt?.text || '',
-              isCorrect: false, attempts: attemptsForThisTurn 
+              isCorrect: false, attempts: attemptsForThisTurn
             }
           ]);
           setIsSubmitting(false);
@@ -183,14 +183,15 @@ export function NewQuizComponent({
       }
     }
   };
-  
+
   const handleRepeatPractice = () => {
-    setCurrentQuestionIndex(0); 
+    setCurrentQuestionIndex(0);
     setScore(0);
     setQuizCompleted(false);
     setQuizSessionData([]);
+    resetQuestionState(); // Ensure full reset
   };
-  
+
   const getButtonText = () => {
     if (questionIsResolved) {
       return currentQuestionIndex < totalQuestions - 1 ? "Siguiente Pregunta" : "Ver Resultados";
@@ -201,7 +202,7 @@ export function NewQuizComponent({
     if (currentQuestionAttempts === 1 && !questionIsResolved) {
       return "Confirmar 2ª Oportunidad";
     }
-    return "Verificar Respuesta"; 
+    return "Verificar Respuesta";
   };
 
   if (quizCompleted) {
@@ -219,8 +220,8 @@ export function NewQuizComponent({
               Obtuviste <span className="font-semibold text-primary">{score}</span> puntos.
             </p>
             <p className="text-muted-foreground">
-              {isLevelTest 
-                ? "La IA analizará tus resultados..." 
+              {isLevelTest
+                ? "La IA analizará tus resultados..."
                 : "¡Seguí así para alcanzar el próximo nivel!"}
             </p>
           </CardContent>
@@ -239,17 +240,47 @@ export function NewQuizComponent({
     );
   }
 
-  const questionDisplayTitle = currentQuestion.type === 'vocabulary' 
+  const questionDisplayTitle = currentQuestion.type === 'vocabulary'
     ? `¿Qué significa "${currentQuestion.text}"?`
     : currentQuestion.text;
 
   return (
     <div className="p-4 space-y-6 flex flex-col items-center">
       <Card className="shadow-lg w-full max-w-2xl">
-        <CardHeader>
-          <CardTitle className="text-2xl text-center">{quizTitle}</CardTitle>
+        <CardHeader className="items-center">
+          <div className="flex items-center justify-between w-full mb-1">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
+                    <Volume2 size={18} />
+                    <span className="sr-only">Leer pregunta</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Leer pregunta (Próximamente)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <CardTitle className="text-2xl text-center flex-grow px-2">{quizTitle}</CardTitle>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" disabled={!questionIsResolved} className="text-muted-foreground hover:text-primary disabled:opacity-50">
+                    <Languages size={18} />
+                    <span className="sr-only">Traducir pregunta</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Traducir pregunta (Próximamente)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           {quizTitle !== "Prueba de Nivel" && (
-            <CardDescription className="text-center">
+            <CardDescription className="text-center pt-0">
                 Poné a prueba tu conocimiento y ganá puntos.
             </CardDescription>
           )}
@@ -281,39 +312,39 @@ export function NewQuizComponent({
               >
                 {currentQuestion.options.map((option) => {
                   const isCurrentlySelected = selectedOptionId === option.id;
-                  const isFirstAttemptFail = firstAttemptIncorrectOptionId === option.id;
+                  const isFirstIncorrect = firstAttemptIncorrectOptionId === option.id;
                   let optionClass = 'hover:bg-accent/10';
 
-                  if (questionIsResolved) { 
+                  if (questionIsResolved) {
                     if (option.id === currentQuestion.correctOptionId) {
                       optionClass = 'border-green-500 bg-green-500/10 ring-2 ring-green-500';
                     } else if (isCurrentlySelected && option.id !== currentQuestion.correctOptionId) {
                       optionClass = 'border-destructive bg-destructive/10 ring-2 ring-destructive';
                     } else {
-                      optionClass = 'opacity-70 cursor-not-allowed'; 
+                      optionClass = 'opacity-70 cursor-not-allowed';
                     }
-                  } else if (currentQuestionAttempts === 1) { 
-                    if (isFirstAttemptFail) {
+                  } else if (currentQuestionAttempts === 1) {
+                    if (isFirstIncorrect) {
                          optionClass = 'border-destructive bg-destructive/10 opacity-60 cursor-not-allowed';
                     } else if (isCurrentlySelected) {
                          optionClass = 'border-primary ring-2 ring-primary bg-primary/10';
                     }
-                  } else if (isCurrentlySelected) { 
+                  } else if (isCurrentlySelected) {
                      optionClass = 'border-primary ring-2 ring-primary bg-primary/10';
                   }
-                  
+
                   return (
                     <Label
                       key={option.id}
                       htmlFor={`option-${option.id}`}
                       className={`flex items-center space-x-3 p-3 border rounded-md transition-colors
                                   ${optionClass}
-                                  ${(questionIsResolved || isSubmitting || (currentQuestionAttempts === 1 && isFirstAttemptFail)) ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                  ${(questionIsResolved || isSubmitting || (currentQuestionAttempts === 1 && isFirstIncorrect)) ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                     >
-                      <RadioGroupItem 
-                        value={option.id} 
-                        id={`option-${option.id}`} 
-                        disabled={questionIsResolved || isSubmitting || (currentQuestionAttempts === 1 && isFirstAttemptFail)}
+                      <RadioGroupItem
+                        value={option.id}
+                        id={`option-${option.id}`}
+                        disabled={questionIsResolved || isSubmitting || (currentQuestionAttempts === 1 && isFirstIncorrect)}
                         className="shrink-0"
                       />
                       <span className="text-base flex-1">{option.text}</span>
@@ -329,11 +360,11 @@ export function NewQuizComponent({
               className={`p-3 rounded-md flex items-center text-sm animate-fadeIn
                 ${feedback.type === 'correct' ? "bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400"
                   : feedback.type === 'info' ? "bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-400"
-                  : "bg-destructive/10 border border-destructive/30 text-destructive dark:text-red-400" 
+                  : "bg-destructive/10 border border-destructive/30 text-destructive dark:text-red-400"
                 }`}
             >
-              {feedback.type === 'correct' ? <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" /> 
-                : feedback.type === 'info' ? <Info className="mr-2 h-4 w-4 shrink-0" /> 
+              {feedback.type === 'correct' ? <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
+                : feedback.type === 'info' ? <Info className="mr-2 h-4 w-4 shrink-0" />
                 : <AlertCircle className="mr-2 h-4 w-4 shrink-0" />}
               <span className="leading-snug">{feedback.message}</span>
             </div>
@@ -343,9 +374,9 @@ export function NewQuizComponent({
           <span className="text-sm text-muted-foreground mb-2 sm:mb-0">
             Puntos: <span className="font-bold text-primary">{score}</span>
           </span>
-          <Button 
-            size="lg" 
-            onClick={handleSubmitOrNext} 
+          <Button
+            size="lg"
+            onClick={handleSubmitOrNext}
             disabled={isSubmitting || (!questionIsResolved && !selectedOptionId)}
             className="w-full sm:w-auto"
           >
