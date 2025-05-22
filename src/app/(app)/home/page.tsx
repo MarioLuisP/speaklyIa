@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/button';
 import { getDailyVocabularySuggestions, DailyVocabularySuggestionsOutput } from '@/ai/flows/vocabulary-suggestions';
 import type { UserProfile } from '@/types';
 import { BookOpen, Flame, HelpCircle } from 'lucide-react';
-import { Logo } from '@/components/ui/Logo';
-import { Progress } from '@/components/ui/progress'; // ShadCN Progress
+import { UserProgressHeader } from '@/components/layout/UserProgressHeader'; // Changed
 
 // Mock user data - updated for Laura
 const mockUser: UserProfile = {
@@ -23,17 +22,8 @@ const mockUser: UserProfile = {
   consecutiveDays: 3, // Streak from image
   currentVocabularyLevel: 'Intermediate', // For AI suggestions
   learningGoals: 'General English improvement and travel vocabulary',
-  // Example fields for daily lesson progress, if needed elsewhere
-  dailyLessonTarget: 100, // e.g. target XP for the day
-  dailyLessonProgress: 45, // e.g. current XP for the day, making it 45%
-};
-
-// This can be simplified or removed if not used elsewhere as mastery levels are different now.
-// For now, keeping it for potential other uses.
-const levelDetails = {
-  Novato: { progressToNext: 100 },
-  Intermedio: { progressToNext: 250 },
-  Experto: { progressToNext: 500 },
+  dailyLessonTarget: 100, 
+  dailyLessonProgress: 45, 
 };
 
 export default function HomePage() {
@@ -61,43 +51,28 @@ export default function HomePage() {
     fetchRecommendations();
   }, [user.currentVocabularyLevel, user.learningGoals]);
 
-  // For the new header design, "NIVEL 1" is used as per image.
-  // The user.level ("Intermedio") can be used for other displays if needed.
-  const displayLevel = "NIVEL 1"; // As per image
-  const dailyProgressPercentage = user.dailyLessonProgress || 45; // Default to 45% if not set
+  const displayLevel = "NIVEL 1"; 
+  const dailyProgressPercentage = user.dailyLessonProgress || 45; 
+  const levelUpMessage = "Sólo 3 entrenamientos más y subís de nivel.";
+  const dailyLessonProgressLabel = `${dailyProgressPercentage}% para completar tu lección del día`;
+
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      {/* New Header Section */}
-      <div className="bg-base-100 p-4 rounded-lg shadow-md space-y-4">
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="text-xs text-muted-foreground">{displayLevel}</p>
-            <p className="text-xs text-muted-foreground mt-1">PUNTOS</p>
-            <p className="text-3xl font-bold text-primary">{user.xp}</p>
-          </div>
-          <Logo size="sm" />
-        </div>
-
-        <div>
-          <h1 className="text-2xl font-bold">¡Seguí así {user.name}!</h1>
-          <p className="text-sm text-muted-foreground">Sólo 3 entrenamientos más y subís de nivel.</p> {/* This text is from image, adjust logic if dynamic */}
-        </div>
-
-        <div>
-          <p className="text-sm text-muted-foreground mb-1">{dailyProgressPercentage}% para completar tu lección del día</p>
-          <Progress value={dailyProgressPercentage} className="h-3 rounded-full" />
-        </div>
-      </div>
+      <UserProgressHeader
+        userName={user.name}
+        xp={user.xp}
+        displayLevel={displayLevel}
+        levelUpMessage={levelUpMessage}
+        dailyLessonProgressPercentage={dailyProgressPercentage}
+        dailyLessonProgressLabel={dailyLessonProgressLabel}
+      />
       
-      {/* Streak Message - Placed below header or above CTA */}
       <div className="bg-base-200 p-3 rounded-lg shadow flex items-center justify-center text-sm text-base-content">
         <Flame size={20} className="mr-2 text-orange-500" />
-        <span>¡Estás de racha! Llevas {user.consecutiveDays} respuestas correctas seguidas.</span> {/* Text from image, may need adjustment based on actual streak metric */}
+        <span>¡Estás de racha! Llevas {user.consecutiveDays} respuestas correctas seguidas.</span>
       </div>
 
-
-      {/* CTA */}
       <div className="text-center">
         <Link href="/practice" legacyBehavior>
           <Button className="btn btn-primary btn-lg">
@@ -114,8 +89,6 @@ export default function HomePage() {
         )}
       </div>
       
-
-      {/* Daily Recommendations */}
       <div className="card bg-base-200 shadow-xl">
         <div className="card-body">
           <h2 className="card-title text-xl">Palabras Recomendadas del Día</h2>
@@ -147,7 +120,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Plans */}
       <div className="card bg-base-200 shadow-xl">
         <div className="card-body">
           <h2 className="card-title text-xl">Nuestros Planes</h2>

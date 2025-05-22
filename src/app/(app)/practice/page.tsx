@@ -2,13 +2,13 @@
 "use client";
 
 import React from 'react';
-import { NewQuizComponent } from '@/components/game/NewQuizComponent'; // Changed import
+import { NewQuizComponent } from '@/components/game/NewQuizComponent'; 
 import type { Question } from '@/types';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from '@/hooks/use-toast';
 import { POINTS_PER_PRACTICE_CORRECT_ANSWER, POINTS_PER_PRACTICE_SECOND_ATTEMPT } from '@/lib/constants';
+import { UserProgressHeader } from '@/components/layout/UserProgressHeader';
 
-// New general practice questions
 const generalPracticeQuestions: Question[] = [
   { 
     id: 'pq1', type: 'vocabulary', text: 'What do plants need from the sun to grow properly?', 
@@ -102,7 +102,6 @@ const generalPracticeQuestions: Question[] = [
   },
 ];
 
-// Hardcoded questions for recommended words - Updated Structure
 const recommendedPracticeQuestions: Question[] = [
   {
     id: 'rec_ebullient', type: 'vocabulary', text: 'Ebullient',
@@ -139,6 +138,15 @@ const recommendedPracticeQuestions: Question[] = [
   }
 ];
 
+// Mock data for the header in practice page
+const practicePageMockHeaderData = {
+  userName: 'Laura',
+  xp: 590, 
+  displayLevel: "NIVEL 1",
+  dailyLessonProgressPercentage: 45, // Example, could be dynamic later
+  levelUpMessage: "¡Concentrate y sumá más puntos en tu práctica!",
+  dailyLessonProgressLabel: "45% para completar tu lección del día",
+};
 
 export default function PracticePage() {
   const router = useRouter();
@@ -149,34 +157,37 @@ export default function PracticePage() {
   let quizTitle = "Práctica Diaria";
 
   if (source === 'recommendations') {
-    // Make sure there are questions for recommendations, otherwise fall back
     currentQuestions = recommendedPracticeQuestions.length > 0 ? recommendedPracticeQuestions : generalPracticeQuestions;
     quizTitle = recommendedPracticeQuestions.length > 0 ? "Práctica de Palabras Recomendadas" : "Práctica Diaria (Recomendadas no disponibles)";
   }
 
-  const handlePracticeComplete = (score: number, sessionData?: any[]) => { // sessionData is available if needed
+  const handlePracticeComplete = (score: number, sessionData?: any[]) => { 
     console.log("Practice complete, score:", score, "Session Data:", sessionData);
-    // Here you would typically update user's XP and other stats
-    // For example: updateUserXP(score);
     toast({
       title: "¡Práctica Completada!",
       description: `Has ganado ${score} puntos de XP. ¡Seguí así!`,
       variant: "default", 
     });
-    // The NewQuizComponent already handles navigation to home or repeating practice.
-    // If specific navigation is needed from here, it can be done.
-    // router.push('/home'); 
   };
 
   return (
-    <NewQuizComponent
-      questions={currentQuestions}
-      quizTitle={quizTitle}
-      pointsPerCorrectAnswer={POINTS_PER_PRACTICE_CORRECT_ANSWER}
-      pointsPerSecondAttempt={POINTS_PER_PRACTICE_SECOND_ATTEMPT}
-      onQuizComplete={handlePracticeComplete}
-      showExplanations={true}
-    />
+    <div className="container mx-auto p-4 space-y-0"> {/* Reduced space-y to 0 or a small value like 2 */}
+      <UserProgressHeader
+        userName={practicePageMockHeaderData.userName}
+        xp={practicePageMockHeaderData.xp}
+        displayLevel={practicePageMockHeaderData.displayLevel}
+        levelUpMessage={practicePageMockHeaderData.levelUpMessage}
+        dailyLessonProgressPercentage={practicePageMockHeaderData.dailyLessonProgressPercentage}
+        dailyLessonProgressLabel={practicePageMockHeaderData.dailyLessonProgressLabel}
+      />
+      <NewQuizComponent
+        questions={currentQuestions}
+        quizTitle={quizTitle}
+        pointsPerCorrectAnswer={POINTS_PER_PRACTICE_CORRECT_ANSWER}
+        pointsPerSecondAttempt={POINTS_PER_PRACTICE_SECOND_ATTEMPT}
+        onQuizComplete={handlePracticeComplete}
+        showExplanations={true}
+      />
+    </div>
   );
 }
-
