@@ -10,3 +10,4 @@ export const NAV_PATHS = {
 };
 
 export const POINTS_PER_PRACTICE_CORRECT_ANSWER = 10;
+export const POINTS_PER_PRACTICE_SECOND_ATTEMPT = 5;
