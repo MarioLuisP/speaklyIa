@@ -1,31 +1,39 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button'; // Shadcn button
+import { Button } from '@/components/ui/button';
 import { getDailyVocabularySuggestions, DailyVocabularySuggestionsOutput } from '@/ai/flows/vocabulary-suggestions';
 import type { UserProfile } from '@/types';
-import { BookOpen, Zap, Shield, Star, HelpCircle } from 'lucide-react';
+import { BookOpen, Flame, HelpCircle } from 'lucide-react';
+import { Logo } from '@/components/ui/Logo';
+import { Progress } from '@/components/ui/progress'; // ShadCN Progress
 
-// Mock user data - replace with actual data fetching
+// Mock user data - updated for Laura
 const mockUser: UserProfile = {
   id: '1',
-  name: 'Usuario Demo',
-  email: 'demo@example.com',
-  avatarUrl: 'https://placehold.co/100x100.png?text=UD',
+  name: 'Laura', // Changed from Usuario Demo
+  email: 'laura@example.com',
+  avatarUrl: 'https://placehold.co/100x100.png?text=L',
   dataAihint: 'profile avatar',
-  level: 'Novato',
-  xp: 75,
-  wordsLearned: 20,
-  consecutiveDays: 3,
-  currentVocabularyLevel: 'Novice',
+  level: 'Intermedio', // Level string for other parts of app
+  xp: 590, // Points from image
+  wordsLearned: 120,
+  consecutiveDays: 3, // Streak from image
+  currentVocabularyLevel: 'Intermediate', // For AI suggestions
   learningGoals: 'General English improvement and travel vocabulary',
+  // Example fields for daily lesson progress, if needed elsewhere
+  dailyLessonTarget: 100, // e.g. target XP for the day
+  dailyLessonProgress: 45, // e.g. current XP for the day, making it 45%
 };
 
+// This can be simplified or removed if not used elsewhere as mastery levels are different now.
+// For now, keeping it for potential other uses.
 const levelDetails = {
-  Novato: { icon: Shield, color: 'text-success', progressToNext: 100 },
-  Intermedio: { icon: Star, color: 'text-info', progressToNext: 250 },
-  Experto: { icon: Zap, color: 'text-primary', progressToNext: 500 },
+  Novato: { progressToNext: 100 },
+  Intermedio: { progressToNext: 250 },
+  Experto: { progressToNext: 500 },
 };
 
 export default function HomePage() {
@@ -45,7 +53,7 @@ export default function HomePage() {
         setRecommendations(result.suggestedWords);
       } catch (error) {
         console.error("Error fetching recommendations:", error);
-        setRecommendations(['error', 'fetching', 'words', 'please', 'retry']); // Fallback
+        setRecommendations(['error', 'fetching', 'words', 'please', 'retry']);
       } finally {
         setLoadingRecs(false);
       }
@@ -53,25 +61,41 @@ export default function HomePage() {
     fetchRecommendations();
   }, [user.currentVocabularyLevel, user.learningGoals]);
 
-  const currentLevelDetail = levelDetails[user.level];
-  const progressPercentage = Math.min((user.xp / currentLevelDetail.progressToNext) * 100, 100);
+  // For the new header design, "NIVEL 1" is used as per image.
+  // The user.level ("Intermedio") can be used for other displays if needed.
+  const displayLevel = "NIVEL 1"; // As per image
+  const dailyProgressPercentage = user.dailyLessonProgress || 45; // Default to 45% if not set
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      {/* Welcome Message & Level */}
-      <div className="card bg-base-200 shadow-xl">
-        <div className="card-body">
-          <h1 className="card-title text-3xl">¡Hola, {user.name}!</h1>
-          <p className="text-base-content/80">Listo para expandir tu vocabulario hoy?</p>
-          <div className="flex items-center gap-2 mt-2">
-            <currentLevelDetail.icon size={24} className={currentLevelDetail.color} />
-            <span className={`font-semibold ${currentLevelDetail.color}`}>{user.level}</span>
-            <span>- Nivel {Math.floor(user.xp / 50) + 1}</span>
+      {/* New Header Section */}
+      <div className="bg-base-100 p-4 rounded-lg shadow-md space-y-4">
+        <div className="flex justify-between items-start">
+          <div>
+            <p className="text-xs text-muted-foreground">{displayLevel}</p>
+            <p className="text-xs text-muted-foreground mt-1">PUNTOS</p>
+            <p className="text-3xl font-bold text-primary">{user.xp}</p>
           </div>
-          <progress className={`progress ${currentLevelDetail.color.replace('text-','progress-')} w-full mt-1`} value={progressPercentage} max="100"></progress>
-          <p className="text-xs text-base-content/70 mt-1">{user.xp} / {currentLevelDetail.progressToNext} XP para el siguiente nivel de maestría.</p>
+          <Logo size="sm" />
+        </div>
+
+        <div>
+          <h1 className="text-2xl font-bold">¡Seguí así {user.name}!</h1>
+          <p className="text-sm text-muted-foreground">Sólo 3 entrenamientos más y subís de nivel.</p> {/* This text is from image, adjust logic if dynamic */}
+        </div>
+
+        <div>
+          <p className="text-sm text-muted-foreground mb-1">{dailyProgressPercentage}% para completar tu lección del día</p>
+          <Progress value={dailyProgressPercentage} className="h-3 rounded-full" />
         </div>
       </div>
+      
+      {/* Streak Message - Placed below header or above CTA */}
+      <div className="bg-base-200 p-3 rounded-lg shadow flex items-center justify-center text-sm text-base-content">
+        <Flame size={20} className="mr-2 text-orange-500" />
+        <span>¡Estás de racha! Llevas {user.consecutiveDays} respuestas correctas seguidas.</span> {/* Text from image, may need adjustment based on actual streak metric */}
+      </div>
+
 
       {/* CTA */}
       <div className="text-center">
