@@ -10,8 +10,8 @@ export default {
   theme: {
   	extend: {
       fontFamily: {
-        sans: ['var(--font-geist-sans)'],
-        mono: ['var(--font-geist-mono)'],
+        sans: ['var(--font-poppins)', 'sans-serif'], // Changed to Poppins, added fallback
+        // mono: ['var(--font-geist-mono)'], // Removed Geist Mono, can be added back if needed
       },
   		colors: {
   			background: 'hsl(var(--background))',
@@ -54,7 +54,7 @@ export default {
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
   			},
-  			sidebar: { // Keep sidebar for now, though not directly used by DaisyUI
+  			sidebar: { 
   				DEFAULT: 'hsl(var(--sidebar-background))',
   				foreground: 'hsl(var(--sidebar-foreground))',
   				primary: 'hsl(var(--sidebar-primary))',
@@ -101,19 +101,19 @@ export default {
   daisyui: {
     themes: [
       {
-        vocabmastertheme: {
-          "primary": "#1A73E8",        // HSL(210, 90%, 50%) - New Blue
-          "primary-content": "#FFFFFF", // White text on primary
-          "secondary": "#F05F20",      // HSL(19, 89%, 54%) - Using accent as secondary
-          "secondary-content": "#FFFFFF", // White text on secondary
-          "accent": "#F05F20",         // HSL(19, 89%, 54%)
-          "accent-content": "#FFFFFF",   // White text on accent
+        vocabmastertheme: { // This theme name can be changed to speaklytheme if desired
+          "primary": "#1A73E8",      
+          "primary-content": "#FFFFFF", 
+          "secondary": "#F05F20",    
+          "secondary-content": "#FFFFFF",
+          "accent": "#F05F20",        
+          "accent-content": "#FFFFFF",  
           "neutral": "#3D4451",
           "neutral-content": "#FFFFFF",
-          "base-100": "#E8E2D1",       // HSL(49, 21%, 88%) - Main background
-          "base-200": "#EDE8D9",       // Slightly lighter/different for card backgrounds
-          "base-300": "#D4CEC0",       // For input backgrounds or borders
-          "base-content": "#3E3B33",   // Main text color
+          "base-100": "#E8E2D1",     
+          "base-200": "#EDE8D9",     
+          "base-300": "#D4CEC0",      
+          "base-content": "#3E3B33",  
           "info": "#2094f3",
           "info-content": "#FFFFFF",
           "success": "#009485",
@@ -123,15 +123,15 @@ export default {
           "error": "#ff5724",
           "error-content": "#FFFFFF",
 
-          "--rounded-box": "0.75rem", /* default: 1rem */
-          "--rounded-btn": "0.5rem",  /* default: 0.5rem */
-          "--rounded-badge": "1.9rem", /* default: 1.9rem */
-          "--animation-btn": "0.25s", /* default: 0.25s */
-          "--animation-input": "0.2s", /* default: 0.2s */
-          "--btn-focus-scale": "0.95", /* default: 0.95 */
-          "--border-btn": "1px", /* default: 1px */
-          "--tab-border": "1px", /* default: 1px */
-          "--tab-radius": "0.5rem", /* default: 0.5rem */
+          "--rounded-box": "0.75rem", 
+          "--rounded-btn": "0.5rem",  
+          "--rounded-badge": "1.9rem", 
+          "--animation-btn": "0.25s", 
+          "--animation-input": "0.2s", 
+          "--btn-focus-scale": "0.95", 
+          "--border-btn": "1px", 
+          "--tab-border": "1px", 
+          "--tab-radius": "0.5rem", 
         },
       },
       "light", "dark", "cupcake", "bumblebee", "emerald", "corporate", "synthwave", "retro", "cyberpunk", "valentine", "halloween", "garden", "forest", "aqua", "lofi", "pastel", "fantasy", "wireframe", "black", "luxury", "dracula", "cmyk", "autumn", "business", "acid", "lemonade", "night", "coffee", "winter"
@@ -142,6 +142,6 @@ export default {
     logs: true,
     rtl: false,
     prefix: "",
-    darkTheme: "dark",
+    darkTheme: "dark", // You might want a specific dark theme for SpeaklyAI
   },
 } satisfies Config;

@@ -11,7 +11,7 @@ export default function WelcomePage() {
           <div className="hero-content text-center">
             <div className="max-w-md">
               <Logo size="lg" className="justify-center mb-6" />
-              <h1 className="text-5xl font-bold text-base-content">VocabMaster AI</h1>
+              <h1 className="text-5xl font-bold text-base-content">SpeaklyAI</h1> {/* Changed from VocabMaster AI */}
               <p className="py-6 text-lg text-base-content/80">
                 Mejorá tu vocabulario día a día con IA. Descubrí nuevas palabras y alcanzá la fluidez.
               </p>
@@ -29,7 +29,7 @@ export default function WelcomePage() {
       </main>
       <footer className="footer footer-center p-4 bg-base-200 text-base-content">
         <aside>
-          <p>Copyright © {new Date().getFullYear()} - Todos los derechos reservados por VocabMaster AI</p>
+          <p>Copyright © {new Date().getFullYear()} - Todos los derechos reservados por SpeaklyAI</p> {/* Changed from VocabMaster AI */}
         </aside>
       </footer>
     </div>

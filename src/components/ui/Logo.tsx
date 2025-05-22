@@ -17,7 +17,7 @@ export function Logo({ size = 'md', showText = true, className = '' }: LogoProps
   return (
     <Link href="/" className={`flex items-center gap-2 text-primary hover:opacity-80 transition-opacity ${className}`}>
       <Sparkles size={sizeClasses[size].icon} className="text-primary" />
-      {showText && <span className={`font-bold ${sizeClasses[size].text}`}>VocabMaster AI</span>}
+      {showText && <span className={`font-bold ${sizeClasses[size].text}`}>SpeaklyAI</span>} {/* Changed from VocabMaster AI */}
     </Link>
   );
 }

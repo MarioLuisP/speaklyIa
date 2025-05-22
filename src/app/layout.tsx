@@ -1,22 +1,18 @@
 import type {Metadata} from 'next';
-import { Geist, Geist_Mono } from 'next/font/google'; // Corrected import
+import { Poppins } from 'next/font/google'; // Changed from Geist
 import './globals.css';
-import { Toaster } from "@/components/ui/toaster"; // Shadcn Toaster for potential use
-import { ThemeProvider } from '@/providers/ThemeProvider'; // For DaisyUI theme management
+import { Toaster } from "@/components/ui/toaster";
+import { ThemeProvider } from '@/providers/ThemeProvider';
 
-const geistSans = Geist({ // Corrected instantiation
-  variable: '--font-geist-sans',
+const poppins = Poppins({ // Instantiated Poppins
   subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({ // Corrected instantiation
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'], // Added common weights
+  variable: '--font-poppins',
 });
 
 export const metadata: Metadata = {
-  title: 'VocabMaster AI',
-  description: 'Mejorá tu vocabulario día a día con IA',
+  title: 'SpeaklyAI', // Changed from VocabMaster AI
+  description: 'Mejorá tu vocabulario día a día con IA', // Kept Spanish description
 };
 
 export default function RootLayout({
@@ -26,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" data-theme="vocabmastertheme">
-      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased min-h-screen flex flex-col`}>
+      <body className={`${poppins.variable} font-sans antialiased min-h-screen flex flex-col`}> {/* Used poppins variable */}
         <ThemeProvider>
           {children}
           <Toaster />

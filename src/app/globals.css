@@ -2,9 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
+/* Removed explicit body font-family here, as it's now handled by layout.tsx and tailwind.config.ts */
+/* body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
-}
+} */
 
 @layer base {
   :root {
@@ -99,11 +100,3 @@ body {
 html {
   scroll-behavior: smooth;
 }
-
-/* Basic transition for all elements for subtle animations */
-/* Use with caution as it can impact performance if overused */
-/* * {
-  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
-  transition-duration: 150ms;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-} */
