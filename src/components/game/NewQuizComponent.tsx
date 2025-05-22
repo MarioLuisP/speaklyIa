@@ -41,7 +41,7 @@ export function NewQuizComponent({
   pointsPerCorrectAnswer,
   pointsPerSecondAttempt = Math.floor(pointsPerCorrectAnswer / 2),
   onQuizComplete,
-  showExplanations = true,
+  showExplanations = true, // Default to true, can be overridden by props
   isLevelTest = false,
 }: NewQuizComponentProps) {
   const router = useRouter();
@@ -172,17 +172,15 @@ export function NewQuizComponent({
           setCurrentQuestionAttempts(1);
           setFirstAttemptIncorrectOptionId(selectedOptionId);
           setFeedback({type: 'incorrect', message: "Respuesta incorrecta. ¡Intentá de nuevo!"});
+          setSelectedOptionId(null); // Reset selection to force new choice for 2nd attempt
           
-          // No limpiar selectedOptionId aquí, para que el usuario vea su error
-          // y luego pueda seleccionar otra opción. El botón cambiará a "Confirmar 2ª Oportunidad".
-          // Después de un tiempo, el feedback se limpia para no ser molesto.
           setTimeout(() => {
-            if (currentQuestionAttempts === 1 && !questionIsResolved) { // Solo limpiar si no se resolvió entretanto
+            if (currentQuestionAttempts === 1 && !questionIsResolved) { 
                setFeedback(null);
             }
             setIsSubmitting(false);
-          }, 1500); // Mantener el feedback visible por 1.5s
-          return; // Salir temprano para que el usuario pueda hacer su 2do intento
+          }, 1500); 
+          return; 
         } else { // Segundo intento incorrecto
           setQuestionIsResolved(true);
           let finalFeedbackMessage = 'Respuesta incorrecta.';
@@ -195,6 +193,8 @@ export function NewQuizComponent({
             } else {
                finalFeedbackMessage = `Incorrecto. La respuesta correcta era "${correctOptionText}".`;
             }
+          } else if (showExplanations && correctOpt) {
+             finalFeedbackMessage = `Incorrecto. La respuesta correcta era "${correctOpt.text}".`;
           }
           setFeedback({type: 'finalIncorrect', message: finalFeedbackMessage});
           setQuizSessionData(prevData => [
@@ -224,7 +224,6 @@ export function NewQuizComponent({
     if (questionIsResolved) {
       return currentQuestionIndex < totalQuestions - 1 ? "Siguiente Pregunta" : "Ver Resultados";
     }
-    // Si es el primer intento (attempts === 0), o si es el segundo intento (attempts === 1) Y aún no se resolvió:
     if (currentQuestionAttempts === 0) {
       return "Verificar Respuesta";
     }
@@ -269,9 +268,7 @@ export function NewQuizComponent({
     );
   }
 
-  const questionDisplayTitle = currentQuestion.type === 'vocabulary'
-    ? `¿Qué significa "${currentQuestion.text}"?`
-    : currentQuestion.text;
+  const questionDisplayTitle = currentQuestion.text;
 
   return (
     <div className="p-4 space-y-6 flex flex-col items-center">
@@ -302,7 +299,13 @@ export function NewQuizComponent({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" disabled={!questionIsResolved} className="text-muted-foreground hover:text-primary disabled:opacity-50">
+                   <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    disabled={!questionIsResolved} 
+                    className="text-muted-foreground hover:text-primary disabled:opacity-50"
+                    onClick={() => { /* TODO: Implement translate functionality */ alert("Función de traducción próximamente.");}}
+                  >
                     <Languages size={18} />
                     <span className="sr-only">Traducir pregunta</span>
                   </Button>
@@ -313,7 +316,7 @@ export function NewQuizComponent({
               </Tooltip>
             </TooltipProvider>
           </div>
-          {quizTitle !== "Prueba de Nivel" && (
+          {quizTitle !== "Prueba de Nivel" && ( // Only show for practice, not level test
             <CardDescription className="text-center pt-0">
                 Poné a prueba tu conocimiento y ganá puntos.
             </CardDescription>
@@ -349,21 +352,21 @@ export function NewQuizComponent({
                   const isFirstAttemptFail = firstAttemptIncorrectOptionId === option.id;
                   let optionClass = 'hover:bg-accent/10';
 
-                  if (questionIsResolved) { // Feedback final cuando la pregunta está resuelta
+                  if (questionIsResolved) { 
                     if (option.id === currentQuestion.correctOptionId) {
                       optionClass = 'border-green-500 bg-green-500/10 ring-2 ring-green-500';
-                    } else if (isCurrentlySelected && option.id !== currentQuestion.correctOptionId) { // La incorrecta que SELECCIONÓ el usuario
+                    } else if (isCurrentlySelected && option.id !== currentQuestion.correctOptionId) { 
                       optionClass = 'border-destructive bg-destructive/10 ring-2 ring-destructive';
-                    } else { // Otras opciones no seleccionadas y no correctas
+                    } else { 
                       optionClass = 'opacity-70 cursor-not-allowed';
                     }
-                  } else if (currentQuestionAttempts === 1) { // Durante el segundo intento
-                    if (isFirstAttemptFail) { // La que falló en el primer intento
+                  } else if (currentQuestionAttempts === 1) { 
+                    if (isFirstAttemptFail) { 
                          optionClass = 'border-destructive bg-destructive/10 opacity-60 cursor-not-allowed';
-                    } else if (isCurrentlySelected) { // La que está seleccionando para el segundo intento
+                    } else if (isCurrentlySelected) { 
                          optionClass = 'border-primary ring-2 ring-primary bg-primary/10';
                     }
-                  } else if (isCurrentlySelected) { // Durante el primer intento, la seleccionada actual
+                  } else if (isCurrentlySelected) { 
                      optionClass = 'border-primary ring-2 ring-primary bg-primary/10';
                   }
                   
@@ -396,7 +399,7 @@ export function NewQuizComponent({
               className={`p-3 rounded-md flex items-center text-sm animate-fadeIn
                 ${feedback.type === 'correct' ? "bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400"
                   : feedback.type === 'info' ? "bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-400"
-                  : "bg-destructive/10 border border-destructive/30 text-destructive dark:text-red-400" // Para 'incorrect' y 'finalIncorrect'
+                  : "bg-destructive/10 border border-destructive/30 text-destructive dark:text-red-400" 
                 }`}
             >
               {feedback.type === 'correct' ? <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
