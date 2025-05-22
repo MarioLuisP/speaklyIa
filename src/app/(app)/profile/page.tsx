@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -6,6 +7,7 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { Button } from '@/components/ui/button';
 import { Shield, Star, Zap, Edit3, Mail, LogOut, Save } from 'lucide-react';
 import { Input } from '@/components/ui/input'; // Shadcn Input
+import { useRouter } from 'next/navigation'; // Import useRouter
 
 // Mock user data - replace with actual data fetching
 const mockUser: UserProfile = {
@@ -33,6 +35,8 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(user.name);
   const [editEmail, setEditEmail] = useState(user.email);
+  const router = useRouter(); // Initialize router
+
   // Avatar editing would typically involve file upload, simplified here
   // const [editAvatarUrl, setEditAvatarUrl] = useState(user.avatarUrl);
 
@@ -46,6 +50,12 @@ export default function ProfilePage() {
       setEditEmail(user.email);
     }
     setIsEditing(!isEditing);
+  };
+
+  const handleLogout = () => {
+    // In a real app, you would clear authentication tokens, session data, etc.
+    console.log("User logged out, redirecting to login...");
+    router.push('/login'); // Redirect to login page
   };
 
   return (
@@ -119,7 +129,7 @@ export default function ProfilePage() {
               {isEditing ? <Save size={18} className="mr-2"/> : <Edit3 size={18} className="mr-2"/>}
               {isEditing ? 'Guardar Cambios' : 'Editar Perfil'}
             </Button>
-            <Button className="btn btn-ghost">
+            <Button className="btn btn-ghost" onClick={handleLogout}> {/* Added onClick handler */}
               <LogOut size={18} className="mr-2" />
               Cerrar Sesión
             </Button>
