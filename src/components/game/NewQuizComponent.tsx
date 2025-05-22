@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, CheckCircle2, Award, Info, Volume2, Languages } from "lucide-react";
+import { AlertCircle, CheckCircle2, Award, Info, Volume2, Languages, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Question } from '@/types';
 import { NAV_PATHS } from "@/lib/constants";
@@ -41,7 +41,7 @@ export function NewQuizComponent({
   pointsPerCorrectAnswer,
   pointsPerSecondAttempt = Math.floor(pointsPerCorrectAnswer / 2),
   onQuizComplete,
-  showExplanations = true, // Default to true, can be overridden by props
+  showExplanations = true,
   isLevelTest = false,
 }: NewQuizComponentProps) {
   const router = useRouter();
@@ -58,6 +58,10 @@ export function NewQuizComponent({
   const [feedback, setFeedback] = useState<{type: 'correct' | 'incorrect' | 'info' | 'finalIncorrect', message: string} | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translationError, setTranslationError] = useState<string | null>(null);
+
   const resetQuestionState = useCallback(() => {
     setSelectedOptionId(null);
     setCurrentQuestionAttempts(0);
@@ -65,6 +69,9 @@ export function NewQuizComponent({
     setFirstAttemptIncorrectOptionId(null);
     setFeedback(null);
     setIsSubmitting(false);
+    setTranslatedText(null);
+    setIsTranslating(false);
+    setTranslationError(null);
   }, []);
 
   useEffect(() => {
@@ -95,49 +102,82 @@ export function NewQuizComponent({
 
   const handleTextToSpeech = () => {
     if (!currentQuestion) return;
-
-    const textToSpeak = currentQuestion.text; // Leer la palabra o frase base de la pregunta
-
+    const textToSpeak = currentQuestion.text;
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel(); // Cancelar cualquier discurso anterior
-
+      window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      // Asumimos que el texto original de la pregunta (currentQuestion.text) está en inglés
-      utterance.lang = 'en-US'; 
-      // utterance.rate = 1; // Velocidad normal
-      // utterance.pitch = 1; // Tono normal
+      utterance.lang = 'en-US';
       window.speechSynthesis.speak(utterance);
     } else {
       console.warn('Speech Synthesis API no está soportada en este navegador.');
-      setFeedback({ type: 'info', message: 'La lectura de voz no está soportada en este navegador.' });
+      setFeedback({ type: 'info', message: 'La lectura de voz no está soportada.' });
       setTimeout(() => setFeedback(null), 2000);
+    }
+  };
+
+  const handleTranslate = async () => {
+    if (!currentQuestion || !currentQuestion.text || isTranslating) return;
+
+    setIsTranslating(true);
+    setTranslatedText(null);
+    setTranslationError(null);
+
+    try {
+      const response = await fetch("https://libretranslate.com/translate", {
+        method: "POST",
+        body: JSON.stringify({
+          q: currentQuestion.text,
+          source: "auto", // Or 'en' if you are sure the source is English
+          target: "es",
+          format: "text",
+        }),
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error de traducción: ${response.statusText}`);
+      }
+      const data = await response.json();
+      if (data.translatedText) {
+        setTranslatedText(data.translatedText);
+      } else {
+        throw new Error("Respuesta de traducción no válida.");
+      }
+    } catch (error) {
+      console.error("Error al traducir:", error);
+      setTranslationError("No se pudo traducir el texto. Intente más tarde.");
+    } finally {
+      setIsTranslating(false);
     }
   };
 
 
   const handleOptionSelect = (optionId: string) => {
     if (questionIsResolved || isSubmitting) return;
-    // Permitir seleccionar cualquier opción si es el primer intento,
-    // o si es el segundo intento y la opción es diferente a la del primer fallo.
     if (currentQuestionAttempts === 1 && optionId === firstAttemptIncorrectOptionId) return; 
 
     setSelectedOptionId(optionId);
     if (feedback && feedback.type !== 'correct' && feedback.type !== 'finalIncorrect') {
-      setFeedback(null); // Limpiar feedback de info o de primer intento incorrecto al cambiar selección
+      setFeedback(null); 
+    }
+    // Clear previous translation when a new option is selected for a new attempt
+    if (translatedText || translationError) {
+        setTranslatedText(null);
+        setTranslationError(null);
     }
   };
 
   const handleSubmitOrNext = () => {
     if (quizCompleted || isSubmitting) return;
 
-    if (questionIsResolved) { // Lógica para "Siguiente Pregunta" o "Ver Resultados"
+    if (questionIsResolved) { 
       if (currentQuestionIndex < totalQuestions - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
       } else {
         setQuizCompleted(true);
         onQuizComplete(score, quizSessionData);
       }
-    } else { // Lógica para "Verificar Respuesta" o "Confirmar 2ª Oportunidad"
+    } else { 
       if (!selectedOptionId) {
         setFeedback({type: 'info', message: "Por favor, seleccioná una respuesta."});
         return;
@@ -157,31 +197,21 @@ export function NewQuizComponent({
         setScore(prevScore => prevScore + pointsEarnedThisTurn);
         setQuestionIsResolved(true);
         setFeedback({type: 'correct', message: `¡Correcto! Ganaste +${pointsEarnedThisTurn} puntos.`});
-        setQuizSessionData(prevData => [
-          ...prevData,
-          {
-            questionId: currentQuestion.id, questionText: currentQuestion.text,
-            selectedOptionId: selectedOptionId, selectedOptionText: selectedOpt?.text || '',
-            correctOptionId: currentQuestion.correctOptionId, correctOptionText: correctOpt?.text || '',
-            isCorrect: true, attempts: attemptsForThisTurn
-          }
-        ]);
-        setIsSubmitting(false);
-      } else { // Incorrect
-        if (attemptsForThisTurn === 1) { // Primer intento incorrecto
+      } else { 
+        if (attemptsForThisTurn === 1) { 
           setCurrentQuestionAttempts(1);
           setFirstAttemptIncorrectOptionId(selectedOptionId);
           setFeedback({type: 'incorrect', message: "Respuesta incorrecta. ¡Intentá de nuevo!"});
-          setSelectedOptionId(null); // Reset selection to force new choice for 2nd attempt
           
           setTimeout(() => {
             if (currentQuestionAttempts === 1 && !questionIsResolved) { 
                setFeedback(null);
+               setSelectedOptionId(null); // Crucial: reset selection for 2nd attempt UI
             }
             setIsSubmitting(false);
           }, 1500); 
           return; 
-        } else { // Segundo intento incorrecto
+        } else { 
           setQuestionIsResolved(true);
           let finalFeedbackMessage = 'Respuesta incorrecta.';
           if (showExplanations && correctOpt) {
@@ -197,16 +227,25 @@ export function NewQuizComponent({
              finalFeedbackMessage = `Incorrecto. La respuesta correcta era "${correctOpt.text}".`;
           }
           setFeedback({type: 'finalIncorrect', message: finalFeedbackMessage});
-          setQuizSessionData(prevData => [
-            ...prevData,
-            {
-              questionId: currentQuestion.id, questionText: currentQuestion.text,
-              selectedOptionId: selectedOptionId, selectedOptionText: selectedOpt?.text || '',
-              correctOptionId: currentQuestion.correctOptionId, correctOptionText: correctOpt?.text || '',
-              isCorrect: false, attempts: attemptsForThisTurn
-            }
-          ]);
-          setIsSubmitting(false);
+        }
+      }
+      
+      if (questionIsResolved || attemptsForThisTurn === 2) { // Log data if resolved or second attempt
+        setQuizSessionData(prevData => [
+          ...prevData,
+          {
+            questionId: currentQuestion.id, questionText: currentQuestion.text,
+            selectedOptionId: selectedOptionId, selectedOptionText: selectedOpt?.text || '',
+            correctOptionId: currentQuestion.correctOptionId, correctOptionText: correctOpt?.text || '',
+            isCorrect: isCorrect, attempts: attemptsForThisTurn
+          }
+        ]);
+      }
+      
+      if (questionIsResolved || (!isCorrect && attemptsForThisTurn < 2)) {
+         // Only set isSubmitting to false if it's not waiting for the timeout
+        if (!(!isCorrect && attemptsForThisTurn === 1)) {
+            setIsSubmitting(false);
         }
       }
     }
@@ -230,7 +269,7 @@ export function NewQuizComponent({
     if (currentQuestionAttempts === 1 && !questionIsResolved) {
       return "Confirmar 2ª Oportunidad";
     }
-    return "Verificar Respuesta"; // Fallback
+    return "Verificar Respuesta"; 
   };
 
   if (quizCompleted) {
@@ -283,6 +322,7 @@ export function NewQuizComponent({
                     size="icon"
                     className="text-muted-foreground hover:text-primary"
                     onClick={handleTextToSpeech}
+                    disabled={isSubmitting}
                   >
                     <Volume2 size={18} />
                     <span className="sr-only">Leer pregunta</span>
@@ -302,21 +342,21 @@ export function NewQuizComponent({
                    <Button 
                     variant="ghost" 
                     size="icon" 
-                    disabled={!questionIsResolved} 
+                    disabled={!questionIsResolved || isTranslating || isSubmitting} 
                     className="text-muted-foreground hover:text-primary disabled:opacity-50"
-                    onClick={() => { /* TODO: Implement translate functionality */ alert("Función de traducción próximamente.");}}
+                    onClick={handleTranslate}
                   >
-                    <Languages size={18} />
+                    {isTranslating ? <Loader2 size={18} className="animate-spin" /> : <Languages size={18} />}
                     <span className="sr-only">Traducir pregunta</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Traducir pregunta (Próximamente)</p>
+                  <p>Traducir pregunta</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
-          {quizTitle !== "Prueba de Nivel" && ( // Only show for practice, not level test
+          {quizTitle !== "Prueba de Nivel" && ( 
             <CardDescription className="text-center pt-0">
                 Poné a prueba tu conocimiento y ganá puntos.
             </CardDescription>
@@ -349,19 +389,19 @@ export function NewQuizComponent({
               >
                 {currentQuestion.options.map((option) => {
                   const isCurrentlySelected = selectedOptionId === option.id;
-                  const isFirstAttemptFail = firstAttemptIncorrectOptionId === option.id;
+                  const isFirstIncorrect = firstAttemptIncorrectOptionId === option.id;
                   let optionClass = 'hover:bg-accent/10';
 
                   if (questionIsResolved) { 
                     if (option.id === currentQuestion.correctOptionId) {
                       optionClass = 'border-green-500 bg-green-500/10 ring-2 ring-green-500';
-                    } else if (isCurrentlySelected && option.id !== currentQuestion.correctOptionId) { 
+                    } else if (selectedOptionId === option.id && option.id !== currentQuestion.correctOptionId) { 
                       optionClass = 'border-destructive bg-destructive/10 ring-2 ring-destructive';
                     } else { 
                       optionClass = 'opacity-70 cursor-not-allowed';
                     }
                   } else if (currentQuestionAttempts === 1) { 
-                    if (isFirstAttemptFail) { 
+                    if (isFirstIncorrect) { 
                          optionClass = 'border-destructive bg-destructive/10 opacity-60 cursor-not-allowed';
                     } else if (isCurrentlySelected) { 
                          optionClass = 'border-primary ring-2 ring-primary bg-primary/10';
@@ -370,7 +410,7 @@ export function NewQuizComponent({
                      optionClass = 'border-primary ring-2 ring-primary bg-primary/10';
                   }
                   
-                  const isDisabled = questionIsResolved || isSubmitting || (currentQuestionAttempts === 1 && isFirstAttemptFail);
+                  const isDisabledIndividually = questionIsResolved || isSubmitting || (currentQuestionAttempts === 1 && isFirstIncorrect);
 
                   return (
                     <Label
@@ -378,12 +418,12 @@ export function NewQuizComponent({
                       htmlFor={`option-${option.id}`}
                       className={`flex items-center space-x-3 p-3 border rounded-md transition-colors
                                   ${optionClass}
-                                  ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                  ${isDisabledIndividually ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       <RadioGroupItem
                         value={option.id}
                         id={`option-${option.id}`}
-                        disabled={isDisabled}
+                        disabled={isDisabledIndividually}
                         className="shrink-0"
                       />
                       <span className="text-base flex-1">{option.text}</span>
@@ -394,7 +434,28 @@ export function NewQuizComponent({
             </CardContent>
           </Card>
 
-          {feedback && (
+          {isTranslating && (
+            <div className="p-3 rounded-md flex items-center text-sm bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-400 animate-fadeIn">
+              <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+              Traduciendo...
+            </div>
+          )}
+          {translationError && !isTranslating && (
+            <div className="p-3 rounded-md flex items-center text-sm bg-destructive/10 border border-destructive/30 text-destructive dark:text-red-400 animate-fadeIn">
+              <AlertCircle className="mr-2 h-4 w-4 shrink-0" />
+              {translationError}
+            </div>
+          )}
+          {translatedText && !isTranslating && (
+             <div className="p-3 rounded-md flex items-start text-sm bg-sky-500/10 border border-sky-500/30 text-sky-700 dark:text-sky-400 animate-fadeIn">
+              <Languages className="mr-2 h-4 w-4 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <span className="font-medium">Traducción:</span> {translatedText}
+              </div>
+            </div>
+          )}
+
+          {feedback && !isTranslating && ( // Don't show regular feedback while translating
             <div
               className={`p-3 rounded-md flex items-center text-sm animate-fadeIn
                 ${feedback.type === 'correct' ? "bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400"
@@ -416,14 +477,13 @@ export function NewQuizComponent({
           <Button
             size="lg"
             onClick={handleSubmitOrNext}
-            disabled={isSubmitting || (!questionIsResolved && !selectedOptionId)}
+            disabled={isSubmitting || (!questionIsResolved && !selectedOptionId && currentQuestionAttempts === 0) || (!questionIsResolved && !selectedOptionId && currentQuestionAttempts === 1)}
             className="w-full sm:w-auto"
           >
-            {getButtonText()}
+            {isSubmitting && !questionIsResolved ? <Loader2 className="animate-spin" /> : getButtonText()}
           </Button>
         </CardFooter>
       </Card>
     </div>
   );
 }
-

@@ -35,7 +35,7 @@ export function UserProgressHeader({
         
         {/* Center: Welcome messages */}
         <div className="text-center mx-2 flex-grow">
-          <h1 className="text-xl font-semibold">¡Seguí así {userName}!</h1>
+          <h1 className="text-2xl font-semibold">¡Seguí así {userName}!</h1> {/* Aumentado de text-xl a text-2xl */}
           <p className="text-sm text-muted-foreground">{levelUpMessage}</p>
         </div>
         
