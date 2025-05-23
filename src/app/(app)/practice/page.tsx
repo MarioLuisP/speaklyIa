@@ -3,138 +3,251 @@
 
 import React from 'react';
 import { NewQuizComponent } from '@/components/game/NewQuizComponent'; 
-import type { Question } from '@/types';
+import type { Question } from '@/types'; // Question type now expects "question" for question text
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from '@/hooks/use-toast';
 import { POINTS_PER_PRACTICE_CORRECT_ANSWER, POINTS_PER_PRACTICE_SECOND_ATTEMPT } from '@/lib/constants';
 import { UserProgressHeader } from '@/components/layout/UserProgressHeader';
 
-const generalPracticeQuestions: Question[] = [
-  { 
-    id: 'pq1', type: 'vocabulary', text: 'What do plants need from the sun to grow properly?', 
+// mockApiPracticeQuestions (antes generalPracticeQuestions)
+const mockApiPracticeQuestions: Question[] = [
+  {
+    question: "What do plants need to grow?",
     options: [
-      {id:'o1', text: 'Plants need sunlight to grow healthy and strong.'},
-      {id:'o2', text: 'Plants need darkness to grow healthy and strong.'},
-      {id:'o3', text: 'Plants need music to grow healthy and strong.'}
-    ], 
-    correctOptionId: 'o1', explanation: 'Plants use sunlight to make food and grow.'
+      {
+        label: "A",
+        text: "Plants need water to grow.",
+        explanation: "This is correct because water is essential for plant growth."
+      },
+      {
+        label: "B",
+        text: "Plants need rocks to grow.",
+        explanation: "This is incorrect because rocks are not necessary for plant growth."
+      },
+      {
+        label: "C",
+        text: "Plants need toys to grow.",
+        explanation: "This is incorrect because toys do not help plants grow."
+      }
+    ]
   },
-  { 
-    id: 'pq2', type: 'vocabulary', text: 'Where do children usually play with water in summer?', 
+  {
+    question: "How do we get energy from the sun?",
     options: [
-      {id:'o1', text: 'Children usually play with water in a pool.'},
-      {id:'o2', text: 'Children usually play with water in a library.'},
-      {id:'o3', text: 'Children usually play with water in a classroom.'}
-    ], 
-    correctOptionId: 'o1', explanation: 'Pools are common places for water play.'
+      {
+        label: "A",
+        text: "The sun gives us energy to play.",
+        explanation: "This is correct because the sun provides the energy needed for activities like playing."
+      },
+      {
+        label: "B",
+        text: "The sun gives us energy to sleep.",
+        explanation: "This is incorrect because the sun does not provide energy for sleeping."
+      },
+      {
+        label: "C",
+        text: "The sun gives us energy to eat.",
+        explanation: "This is incorrect because the sun does not provide energy for eating."
+      }
+    ]
   },
-  { 
-    id: 'pq3', type: 'vocabulary', text: 'What do we call the energy from the sun?', 
+  {
+    question: "What is the state of water in the hearth?",
     options: [
-      {id:'o1', text: 'We call the energy from the sun solar energy.'},
-      {id:'o2', text: 'We call the energy from the sun wind energy.'},
-      {id:'o3', text: 'We call the energy from the sun water energy.'}
-    ], 
-    correctOptionId: 'o1', explanation: 'Solar energy comes from the sun.'
+      {
+        label: "A",
+        text: "Water in the hearth is hot.",
+        explanation: "This is correct because the hearth is a source of heat."
+      },
+      {
+        label: "B",
+        text: "Water in the hearth is cold.",
+        explanation: "This is incorrect because the hearth is a source of heat, not cold."
+      },
+      {
+        label: "C",
+        text: "Water in the hearth is frozen.",
+        explanation: "This is incorrect because the hearth is a source of heat, not cold."
+      }
+    ]
   },
-  { 
-    id: 'pq4', type: 'vocabulary', text: 'What do we use to play music on a device?', 
+  {
+    question: "What is the vision of a fany?",
     options: [
-      {id:'o1', text: 'We use speakers to play music on a device.'},
-      {id:'o2', text: 'We use a microwave to play music on a device.'},
-      {id:'o3', text: 'We use a refrigerator to play music on a device.'}
-    ], 
-    correctOptionId: 'o1', explanation: 'Speakers produce sound for music.'
+      {
+        label: "A",
+        text: "A fany has good vision.",
+        explanation: "This is correct because fany is a type of cat, and cats have good vision."
+      },
+      {
+        label: "B",
+        text: "A fany has bad vision.",
+        explanation: "This is incorrect because fany cats have good vision."
+      },
+      {
+        label: "C",
+        text: "A fany has no vision.",
+        explanation: "This is incorrect because fany cats can see."
+      }
+    ]
   },
-  { 
-    id: 'pq5', type: 'vocabulary', text: 'What do seeds need to grow into plants?', 
+  {
+    question: "What is crypto made from?",
     options: [
-      {id:'o1', text: 'Seeds need water to grow into plants.'},
-      {id:'o2', text: 'Seeds need darkness to grow into plants.'},
-      {id:'o3', text: 'Seeds need silence to grow into plants.'}
-    ], 
-    correctOptionId: 'o1', explanation: 'Water helps seeds grow into plants.'
+      {
+        label: "A",
+        text: "Crypto is made from metal.",
+        explanation: "This is correct because crypto coins are often made from metal."
+      },
+      {
+        label: "B",
+        text: "Crypto is made from wood.",
+        explanation: "This is incorrect because crypto coins are not made from wood."
+      },
+      {
+        label: "C",
+        text: "Crypto is made from paper.",
+        explanation: "This is incorrect because crypto coins are not made from paper."
+      }
+    ]
   },
-  { 
-    id: 'pq6', type: 'vocabulary', text: 'What do dogs use to smell things around them?', 
+  {
+    question: "What do we need to see the sun?",
     options: [
-      {id:'o1', text: 'Dogs use their noses to smell things around them.'},
-      {id:'o2', text: 'Dogs use their ears to smell things around them.'},
-      {id:'o3', text: 'Dogs use their tails to smell things around them.'}
-    ], 
-    correctOptionId: 'o1', explanation: 'Noses are used by dogs to smell.'
+      {
+        label: "A",
+        text: "We need clear skies to see the sun.",
+        explanation: "This is correct because clear skies allow us to see the sun."
+      },
+      {
+        label: "B",
+        text: "We need dark skies to see the sun.",
+        explanation: "This is incorrect because dark skies do not allow us to see the sun."
+      },
+      {
+        label: "C",
+        text: "We need rain to see the sun.",
+        explanation: "This is incorrect because rain does not allow us to see the sun."
+      }
+    ]
   },
-  { 
-    id: 'pq7', type: 'vocabulary', text: 'Where do people usually play football with their friends?', 
+  {
+    question: "What is the sun made of?",
     options: [
-      {id:'o1', text: 'People usually play football in a field or park.'},
-      {id:'o2', text: 'People usually play football in a swimming pool.'},
-      {id:'o3', text: 'People usually play football in a library.'}
-    ], 
-    correctOptionId: 'o1', explanation: 'Fields or parks are common for football.'
+      {
+        label: "A",
+        text: "The sun is made of hot gas.",
+        explanation: "This is correct because the sun is primarily composed of hot gas."
+      },
+      {
+        label: "B",
+        text: "The sun is made of ice.",
+        explanation: "This is incorrect because the sun is not made of ice."
+      },
+      {
+        label: "C",
+        text: "The sun is made of rock.",
+        explanation: "This is incorrect because the sun is not made of rock."
+      }
+    ]
   },
-  { 
-    id: 'pq8', type: 'vocabulary', text: 'What do we study in science to learn about nature?', 
+  {
+    question: "What do we use to play in the water?",
     options: [
-      {id:'o1', text: 'We study plants and animals in science to learn about nature.'},
-      {id:'o2', text: 'We study mathematics in science to learn about nature.'},
-      {id:'o3', text: 'We study history in science to learn about nature.'}
-    ], 
-    correctOptionId: 'o1', explanation: 'Science includes studying plants and animals.'
+      {
+        label: "A",
+        text: "We use toys to play in the water.",
+        explanation: "This is correct because toys are commonly used for playing in the water."
+      },
+      {
+        label: "B",
+        text: "We use books to play in the water.",
+        explanation: "This is incorrect because books are not used for playing in the water."
+      },
+      {
+        label: "C",
+        text: "We use shoes to play in the water.",
+        explanation: "This is incorrect because shoes are not typically used for playing in the water."
+      }
+    ]
   },
-  { 
-    id: 'pq9', type: 'vocabulary', text: 'What do we use a computer for at school?', 
+  {
+    question: "What is the energy from the sun called?",
     options: [
-      {id:'o1', text: 'We use a computer for learning and doing homework.'},
-      {id:'o2', text: 'We use a computer for cooking food at school.'},
-      {id:'o3', text: 'We use a computer for playing outside at school.'}
-    ], 
-    correctOptionId: 'o1', explanation: 'Computers help with learning and homework.'
+      {
+        label: "A",
+        text: "The energy from the sun is called solar energy.",
+        explanation: "This is correct because solar energy comes from the sun."
+      },
+      {
+        label: "B",
+        text: "The energy from the sun is called wind energy.",
+        explanation: "This is incorrect because wind energy comes from the wind, not the sun."
+      },
+      {
+        label: "C",
+        text: "The energy from the sun is called water energy.",
+        explanation: "This is incorrect because water energy comes from water, not the sun."
+      }
+    ]
   },
-  { 
-    id: 'pq10', type: 'vocabulary', text: 'What do we call something very fancy and decorative?', 
+  {
+    question: "What do we need to see clearly?",
     options: [
-      {id:'o1', text: 'We call something very fancy and decorative ornate.'},
-      {id:'o2', text: 'We call something very fancy and decorative simple.'},
-      {id:'o3', text: 'We call something very fancy and decorative plain.'}
-    ], 
-    correctOptionId: 'o1', explanation: 'Ornate means fancy and decorative.'
-  },
+      {
+        label: "A",
+        text: "We need good vision to see clearly.",
+        explanation: "This is correct because good vision is necessary for clear sight."
+      },
+      {
+        label: "B",
+        text: "We need bad vision to see clearly.",
+        explanation: "This is incorrect because bad vision does not allow for clear sight."
+      },
+      {
+        label: "C",
+        text: "We need no vision to see clearly.",
+        explanation: "This is incorrect because vision is required to see clearly."
+      }
+    ]
+  }
 ];
 
+// Updated recommendedPracticeQuestions structure
 const recommendedPracticeQuestions: Question[] = [
   {
-    id: 'rec_ebullient', type: 'vocabulary', text: 'Ebullient',
+    id: 'rec_ebullient',
+    question: 'Ebullient', // Changed 'text' to 'question'
+    type: 'vocabulary',
     options: [
-      { id: 'o1', text: 'Quiet and reserved' },
-      { id: 'o2', text: 'Cheerful and full of energy' },
-      { id: 'o3', text: 'Sad and lonely' }
+      { label: 'B', text: 'Cheerful and full of energy', explanation: '"Ebullient" means overflowing with fervor, enthusiasm, or excitement.' }, // Correct option listed first
+      { label: 'A', text: 'Quiet and reserved', explanation: 'This is not the meaning of Ebullient.' },
+      { label: 'C', text: 'Sad and lonely', explanation: 'This is not the meaning of Ebullient.' }
     ],
-    correctOptionId: 'o2',
     translation: 'Entusiasta / Vivaz',
-    explanation: '"Ebullient" means overflowing with fervor, enthusiasm, or excitement.'
+    // Removed top-level explanation, it's now in the correct option
   },
   {
-    id: 'rec_ephemeral', type: 'vocabulary', text: 'Ephemeral',
+    id: 'rec_ephemeral',
+    question: 'Ephemeral', // Changed 'text' to 'question'
+    type: 'vocabulary',
     options: [
-      { id: 'o1', text: 'Long-lasting' },
-      { id: 'o2', text: 'Lasting for a very short time' },
-      { id: 'o3', text: 'Very important' }
+      { label: 'B', text: 'Lasting for a very short time', explanation: '"Ephemeral" describes something that is transient or quickly fading.' }, // Correct option listed first
+      { label: 'A', text: 'Long-lasting', explanation: 'This is not the meaning of Ephemeral.' },
+      { label: 'C', text: 'Very important', explanation: 'This is not the meaning of Ephemeral.' }
     ],
-    correctOptionId: 'o2',
     translation: 'Efímero',
-    explanation: '"Ephemeral" describes something that is transient or quickly fading.'
   },
   {
-    id: 'rec_serendipity', type: 'vocabulary', text: 'Serendipity',
+    id: 'rec_serendipity',
+    question: 'Serendipity', // Changed 'text' to 'question'
+    type: 'vocabulary',
     options: [
-      { id: 'o1', text: 'A planned discovery' },
-      { id: 'o2', text: 'The occurrence of events by chance in a happy or beneficial way' },
-      { id: 'o3', text: 'A type of fruit' }
+      { label: 'B', text: 'The occurrence of events by chance in a happy or beneficial way', explanation: '"Serendipity" is finding valuable or agreeable things not sought for.' }, // Correct option listed first
+      { label: 'A', text: 'A planned discovery', explanation: 'This is not the meaning of Serendipity.' },
+      { label: 'C', text: 'A type of fruit', explanation: 'This is not the meaning of Serendipity.' }
     ],
-    correctOptionId: 'o2',
     translation: 'Serendipia',
-    explanation: '"Serendipity" is finding valuable or agreeable things not sought for.'
   }
 ];
 
@@ -143,7 +256,7 @@ const practicePageMockHeaderData = {
   userName: 'Laura',
   xp: 590, 
   displayLevel: "NIVEL 1",
-  dailyLessonProgressPercentage: 45, // Example, could be dynamic later
+  dailyLessonProgressPercentage: 45, 
   levelUpMessage: "¡Concentrate y sumá más puntos en tu práctica!",
   dailyLessonProgressLabel: "45% para completar tu lección del día",
 };
@@ -153,11 +266,11 @@ export default function PracticePage() {
   const searchParams = useSearchParams();
   const source = searchParams.get('source');
 
-  let currentQuestions = generalPracticeQuestions;
+  let currentQuestions = mockApiPracticeQuestions; // Default to general questions
   let quizTitle = "Práctica Diaria";
 
   if (source === 'recommendations') {
-    currentQuestions = recommendedPracticeQuestions.length > 0 ? recommendedPracticeQuestions : generalPracticeQuestions;
+    currentQuestions = recommendedPracticeQuestions.length > 0 ? recommendedPracticeQuestions : mockApiPracticeQuestions;
     quizTitle = recommendedPracticeQuestions.length > 0 ? "Práctica de Palabras Recomendadas" : "Práctica Diaria (Recomendadas no disponibles)";
   }
 
@@ -168,10 +281,11 @@ export default function PracticePage() {
       description: `Has ganado ${score} puntos de XP. ¡Seguí así!`,
       variant: "default", 
     });
+    // Optionally, you could send sessionData to an AI flow for analysis here if needed in the future
   };
 
   return (
-    <div className="container mx-auto p-4 space-y-0"> {/* Reduced space-y to 0 or a small value like 2 */}
+    <div className="container mx-auto p-4 space-y-0"> 
       <UserProgressHeader
         userName={practicePageMockHeaderData.userName}
         xp={practicePageMockHeaderData.xp}
@@ -186,8 +300,9 @@ export default function PracticePage() {
         pointsPerCorrectAnswer={POINTS_PER_PRACTICE_CORRECT_ANSWER}
         pointsPerSecondAttempt={POINTS_PER_PRACTICE_SECOND_ATTEMPT}
         onQuizComplete={handlePracticeComplete}
-        showExplanations={true}
+        showExplanations={true} // NewQuizComponent now handles explanations internally
       />
     </div>
   );
 }
+
