@@ -1,20 +1,37 @@
-export interface QuestionOption {
-  id: string; // e.g., 'a', 'b', 'c'
+
+// src/types/index.ts
+
+// Representa una opción tal como viene de la API/JSON simulado
+export interface ApiQuestionOption {
+  label: string; // 'A', 'B', 'C'
   text: string;
+  explanation: string;
 }
 
+// Representa una pregunta tal como viene de la API/JSON simulado
 export interface Question {
-  id: string; // Unique ID for the question itself
-  type: 'vocabulary' | 'grammar';
-  // For vocabulary type, 'text' is the word. Component will format as "¿Qué significa '${text}'?"
-  // For grammar type, 'text' is the full question sentence.
-  text: string; 
-  options: QuestionOption[];
-  correctOptionId: string; // The 'id' of the correct QuestionOption
-  translation?: string; // For vocabulary: meaning of the word. For grammar: can be a hint or correct sentence structure.
-  explanation?: string; // Detailed explanation if needed, especially for grammar or complex vocab.
+  id?: string; // Opcional, se puede derivar del índice si no viene de la API
+  question: string; // El texto de la pregunta como viene en el JSON
+  options: ApiQuestionOption[];
+  type?: 'vocabulary' | 'grammar'; // Mantener por si se usa para lógica de display, aunque el JSON actual no lo incluye
+  translation?: string; // Del formato anterior, podría no ser usado con el nuevo JSON
+  // correctOptionId no está en la estructura original del JSON, se deriva en el componente.
+  // explanation (para la pregunta en sí) no está en el nuevo JSON.
 }
 
+// Representa una opción de pregunta DESPUÉS de ser procesada por NewQuizComponent (con ID generado, etc.)
+// Este tipo no necesita estar aquí si solo se usa internamente en NewQuizComponent,
+// pero si se exporta (ej. para QuizSessionDataItem), podría estar aquí.
+// Por ahora, la mantendremos como tipo interno en NewQuizComponent si es posible.
+// export interface ProcessedQuestionOption {
+//   id: string;
+//   text: string;
+//   explanation: string;
+//   originalLabel: string;
+// }
+
+
+// Perfil de Usuario y Leaderboard se mantienen igual
 export interface UserProfile {
   id: string;
   name: string;
@@ -24,9 +41,11 @@ export interface UserProfile {
   xp: number;
   wordsLearned: number;
   consecutiveDays: number;
-  currentVocabularyLevel: string; // For AI suggestions, e.g., "Novice", "Intermediate"
-  learningGoals: string; // For AI suggestions
+  currentVocabularyLevel: string;
+  learningGoals: string;
   dataAihint?: string;
+  dailyLessonTarget?: number;
+  dailyLessonProgress?: number;
 }
 
 export interface LeaderboardUser {

@@ -11,20 +11,24 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, CheckCircle2, Award, Info, Volume2, Languages, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { Question as OriginalQuestion, QuestionOption as OriginalQuestionOption } from '@/types'; // Renamed to avoid conflict
+import type { Question as OriginalQuestion, ApiQuestionOption } from '@/types'; // OriginalQuestion ahora es la estructura del JSON
 import { NAV_PATHS } from "@/lib/constants";
 
-// Internal types for shuffled questions
-interface ShuffledQuestionOption extends OriginalQuestionOption {
-  originalLabel: string; // To keep track of 'A', 'B', 'C' if needed later
+// Tipos internos para el componente después de procesar las preguntas originales
+interface ProcessedQuestionOption {
+  id: string; // ID único generado, ej: "q0-optA"
+  text: string;
+  explanation: string;
+  originalLabel: string; // 'A', 'B', 'C'
 }
 
-interface ProcessedQuestion extends Omit<OriginalQuestion, 'options' | 'correctOptionId'> {
-  questionText: string;
-  options: ShuffledQuestionOption[];
-  correctOptionId: string; // This will be the ID of the correct option after shuffling
+interface ProcessedQuestion {
+  id: string; // ID de la pregunta original o generado, ej: "q0"
+  questionText: string; // Texto de la pregunta para mostrar
+  options: ProcessedQuestionOption[]; // Opciones randomizadas
+  correctOptionId: string; // ID de la opción correcta dentro de ProcessedQuestionOption[]
+  type?: OriginalQuestion['type'];
 }
-
 
 export interface QuizSessionDataItem {
   questionId: string;
@@ -38,12 +42,12 @@ export interface QuizSessionDataItem {
 }
 
 interface NewQuizComponentProps {
-  questions: OriginalQuestion[];
+  questions: OriginalQuestion[]; // Ahora espera el tipo de dato del JSON
   quizTitle: string;
   pointsPerCorrectAnswer: number;
   pointsPerSecondAttempt?: number;
   onQuizComplete: (score: number, sessionData: QuizSessionDataItem[]) => void;
-  showExplanations?: boolean;
+  showExplanations?: boolean; // Podría usarse para controlar si se muestran explicaciones detalladas
   isLevelTest?: boolean;
 }
 
@@ -62,7 +66,7 @@ export function NewQuizComponent({
   pointsPerCorrectAnswer,
   pointsPerSecondAttempt = Math.floor(pointsPerCorrectAnswer / 2),
   onQuizComplete,
-  showExplanations = true,
+  showExplanations = true, // Actualmente, las explicaciones siempre se usan en el feedback
   isLevelTest = false,
 }: NewQuizComponentProps) {
   const router = useRouter();
@@ -86,36 +90,46 @@ export function NewQuizComponent({
 
   useEffect(() => {
     if (originalQuestions && originalQuestions.length > 0) {
-      const processed = originalQuestions.map((q, index) => {
-        // The API format has the first option as correct.
-        // We need to assign unique IDs to options if they don't have them,
-        // or use existing 'label' if it's meant to be the ID.
-        // For simplicity, let's use the original 'label' as 'id' if present, or generate one.
-        let correctOptId = '';
-        const optionsWithIdsAndOriginalLabel = q.options.map((opt, optIndex) => {
-          const uniqueOptionId = `${q.id || `q${index}`}-opt${opt.label || optIndex}`;
-          if (optIndex === 0) { // Assuming first option is always correct from API
-            correctOptId = uniqueOptionId;
+      const processedQs = originalQuestions.map((origQ, index) => {
+        const baseQuestionId = origQ.id || `q${index}`; // ej: "q0"
+        let derivedCorrectOptionId = '';
+
+        // Mapear ApiQuestionOption a ProcessedQuestionOption, generando IDs
+        const optionsWithFullData = origQ.options.map((apiOpt, optIndex) => {
+          const generatedOptionId = `${baseQuestionId}-opt${apiOpt.label || optIndex}`;
+          if (optIndex === 0) { // API spec: primera opción es la correcta
+            derivedCorrectOptionId = generatedOptionId;
           }
-          return {
-            ...opt,
-            id: uniqueOptionId,
-            originalLabel: opt.label, // Store original A, B, C label
+          return { // Esto debe coincidir con ProcessedQuestionOption
+            id: generatedOptionId,
+            text: apiOpt.text,
+            explanation: apiOpt.explanation,
+            originalLabel: apiOpt.label,
           };
         });
 
-        const shuffledOpts = shuffleArray(optionsWithIdsAndOriginalLabel);
+        const shuffledOptions = shuffleArray(optionsWithFullData);
         
-        return {
-          ...q,
-          id: q.id || `q${index}`, // Ensure question has an ID
-          questionText: q.questionText,
-          options: shuffledOpts,
-          correctOptionId: correctOptId, // This is the ID of the *original* first option
+        return { // Esto debe coincidir con ProcessedQuestion
+          id: baseQuestionId,
+          questionText: origQ.question, // Mapear del campo 'question' del JSON
+          options: shuffledOptions,
+          correctOptionId: derivedCorrectOptionId,
+          type: origQ.type,
         };
       });
-      setShuffledQuestions(processed);
+      setShuffledQuestions(processedQs);
+      // Reiniciar estados del quiz si las preguntas cambian fundamentalmente
+      setCurrentQuestionIndex(0);
+      setScore(0);
+      setQuizCompleted(false);
+      setQuizSessionData([]);
+      resetQuestionState();
+
+    } else {
+      setShuffledQuestions([]);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [originalQuestions]);
 
 
@@ -136,32 +150,61 @@ export function NewQuizComponent({
   }, [currentQuestionIndex, resetQuestionState]);
 
 
-  if (shuffledQuestions.length === 0) {
+  if (shuffledQuestions.length === 0 && !originalQuestions?.length) { // Check if originalQuestions was also empty
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
         <Card className="shadow-lg text-center w-full max-w-md">
           <CardHeader>
-            <CardTitle>Sin Preguntas</CardTitle>
+            <CardTitle>Cargando Preguntas...</CardTitle>
           </CardHeader>
           <CardContent>
-            <p>No hay preguntas disponibles para esta práctica.</p>
+            <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
+            <p className="mt-2">Por favor, esperá un momento.</p>
           </CardContent>
-          <CardFooter className="justify-center">
-            <Button onClick={() => router.push(NAV_PATHS.HOME)}>Volver a Inicio</Button>
-          </CardFooter>
         </Card>
       </div>
     );
   }
+  
+  if (shuffledQuestions.length === 0 && originalQuestions?.length) { // originalQuestions exist but processed ones are not ready (should be quick)
+    return ( // Or some loading state, but usually this transition is too fast to notice if logic is sync
+       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
+         <Card className="shadow-lg text-center w-full max-w-md">
+           <CardHeader><CardTitle>Preparando Quiz...</CardTitle></CardHeader>
+           <CardContent><Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" /></CardContent>
+         </Card>
+       </div>
+    );
+  }
+
 
   const totalQuestions = shuffledQuestions.length;
+  // Prevenir error si shuffledQuestions está vacío temporalmente o currentQuestionIndex es inválido
+  if (totalQuestions === 0 || currentQuestionIndex >= totalQuestions) {
+     return ( // O un estado de error más robusto
+       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
+        <Card className="shadow-lg text-center w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Error</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>No se pudieron cargar las preguntas. Por favor, intentá de nuevo.</p>
+          </CardContent>
+           <CardFooter className="justify-center">
+            <Button onClick={() => router.push(NAV_PATHS.HOME)}>Volver a Inicio</Button>
+          </CardFooter>
+        </Card>
+      </div>
+     );
+  }
   const currentQuestion = shuffledQuestions[currentQuestionIndex];
+
 
   const handleTextToSpeech = () => {
     if (!currentQuestion) return;
     const textToSpeak = currentQuestion.questionText;
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+      window.speechSynthesis.cancel(); // Cancel any previous speech
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
       utterance.lang = 'en-US';
       utterance.rate = 0.8; 
@@ -181,21 +224,32 @@ export function NewQuizComponent({
     try {
       const encodedQuery = encodeURIComponent(currentQuestion.questionText);
       const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodedQuery}&langpair=en|es`);
+      
+      let errorData;
+      let errorMessage = `Error de traducción (${response.status})`;
+
       if (!response.ok) {
-        let errorData;
-        let errorMessage = `Error de traducción (${response.status})`;
         try {
           errorData = await response.json();
           if (errorData?.responseDetails) { 
             errorMessage += `: ${errorData.responseDetails}`;
           } else if (errorData?.message) { 
              errorMessage += `: ${errorData.message}`;
+          } else if (errorData?.match && typeof errorData.match === 'number' && errorData.match < 0.5 && errorData.responseData?.translatedText) {
+             // MyMemory sometimes returns 200 OK but low match and "NO QUERY SPECIFIED!"
+             // If match is low but translatedText is there, consider it an error of quality
+            if(errorData.responseData.translatedText.includes("NO QUERY SPECIFIED")){
+                errorMessage += ": No se especificó consulta o hubo un problema con la API.";
+            } else {
+                // Use the text but maybe flag as low quality if desired. For now, treat as ok.
+            }
           } else if (response.statusText) {
             errorMessage += `: ${response.statusText}`;
           } else {
              errorMessage += ": Error desconocido del servidor";
           }
         } catch (e) {
+           // Failed to parse JSON body
            if (response.statusText) {
             errorMessage += `: ${response.statusText}`;
           } else {
@@ -204,11 +258,13 @@ export function NewQuizComponent({
         }
         throw new Error(errorMessage);
       }
+
       const data = await response.json();
-      if (data.responseData && data.responseData.translatedText) {
+
+      if (data.responseData && data.responseData.translatedText && !data.responseData.translatedText.includes("NO QUERY SPECIFIED")) {
         setTranslatedText(data.responseData.translatedText);
-      } else if (data.responseDetails) { 
-        throw new Error(`Error de traducción: ${data.responseDetails}`);
+      } else if (data.responseDetails || data.responseData?.translatedText.includes("NO QUERY SPECIFIED")) { 
+        throw new Error(`Error de traducción: ${data.responseDetails || "Respuesta no válida de la API."}`);
       } else {
         throw new Error("Respuesta de traducción no válida o vacía.");
       }
@@ -223,12 +279,15 @@ export function NewQuizComponent({
 
   const handleOptionSelect = (optionId: string) => {
     if (questionIsResolved || isSubmitting) return;
-    if (currentQuestionAttempts === 1 && optionId === firstAttemptIncorrectOptionId) return;
-    setSelectedOptionId(optionId);
+    // Allow selection if it's the first attempt, or
+    // if it's the second attempt and the selected option is not the one that failed first
+    if (currentQuestionAttempts === 0 || (currentQuestionAttempts === 1 && optionId !== firstAttemptIncorrectOptionId)) {
+      setSelectedOptionId(optionId);
+    }
     if (feedback && feedback.type === 'incorrect') { 
       setFeedback(null); 
     }
-    if (translatedText || translationError) {
+    if (translatedText || translationError) { // Clear translation when user interacts with options
         setTranslatedText(null);
         setTranslationError(null);
     }
@@ -236,7 +295,9 @@ export function NewQuizComponent({
 
   const handleSubmitOrNext = () => {
     if (quizCompleted) return; 
-    if (questionIsResolved) { 
+    
+    if (questionIsResolved) { // Logic for "Siguiente Pregunta" or "Ver Resultados"
+      setIsSubmitting(false); // Ensure button is enabled for next action
       if (currentQuestionIndex < totalQuestions - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
       } else {
@@ -256,45 +317,49 @@ export function NewQuizComponent({
     const attemptsForThisTurn = currentQuestionAttempts + 1;
     const isCorrect = selectedOptionId === currentQuestion.correctOptionId;
     let pointsEarnedThisTurn = 0;
-    let questionAttemptResolved = false; 
-
+    
     const selectedOptionObject = currentQuestion.options.find(o => o.id === selectedOptionId);
     const correctOptionObject = currentQuestion.options.find(o => o.id === currentQuestion.correctOptionId);
     
     let feedbackMessage = "";
+    let feedbackType: 'correct' | 'incorrect' | 'finalIncorrect' = 'incorrect';
 
     if (isCorrect) {
       pointsEarnedThisTurn = attemptsForThisTurn === 1 ? pointsPerCorrectAnswer : (pointsPerSecondAttempt || 0);
       setScore(prevScore => prevScore + pointsEarnedThisTurn);
       setQuestionIsResolved(true);
-      questionAttemptResolved = true;
+      feedbackType = 'correct';
       feedbackMessage = `¡Correcto! ${selectedOptionObject?.explanation || ''} Ganaste +${pointsEarnedThisTurn} puntos.`;
-      setFeedback({type: 'correct', message: feedbackMessage});
     } else { 
       if (attemptsForThisTurn === 1) { 
         setCurrentQuestionAttempts(1);
         setFirstAttemptIncorrectOptionId(selectedOptionId);
+        feedbackType = 'incorrect';
         feedbackMessage = `Respuesta incorrecta. ${selectedOptionObject?.explanation || ''} ¡Intentá de nuevo!`;
-        setFeedback({type: 'incorrect', message: feedbackMessage});
+        setFeedback({type: feedbackType, message: feedbackMessage});
+        
+        // Delay and reset for second attempt
         setTimeout(() => {
-          if (currentQuestionAttempts === 1 && !questionIsResolved && feedback?.type === 'incorrect') { 
+          if (currentQuestionAttempts === 1 && !questionIsResolved) { // Check if still relevant
              setFeedback(null);
-             // setSelectedOptionId(null); // No limpiar para que el botón se habilite con la nueva selección
+             setSelectedOptionId(null); // Clear selection for a fresh second attempt choice
           }
           setIsSubmitting(false); 
         }, 1500); 
-        return; 
-      } else { 
+        return; // Exit early, wait for user's second attempt
+      } else { // Second attempt, and still incorrect
         setQuestionIsResolved(true);
-        questionAttemptResolved = true;
-        const correctExplanation = correctOptionObject?.explanation || '';
-        const selectedExplanation = selectedOptionObject?.explanation || '';
-        feedbackMessage = `Incorrecto. ${selectedExplanation} La respuesta correcta era "${correctOptionObject?.text || 'desconocida'}". Explicación: ${correctExplanation}`;
-        setFeedback({type: 'finalIncorrect', message: feedbackMessage});
+        feedbackType = 'finalIncorrect';
+        const correctExplanationText = correctOptionObject?.explanation || '';
+        const selectedExplanationText = selectedOptionObject?.explanation || '';
+        feedbackMessage = `Incorrecto. ${selectedExplanationText} La respuesta correcta era "${correctOptionObject?.text || 'desconocida'}". Explicación: ${correctExplanationText}`;
       }
     }
     
-    if (questionAttemptResolved) {
+    setFeedback({type: feedbackType, message: feedbackMessage});
+    
+    // Record session data when question is fully resolved
+    if (questionIsResolved) {
       setQuizSessionData(prevData => [
         ...prevData,
         {
@@ -306,7 +371,8 @@ export function NewQuizComponent({
       ]);
     }
     
-    if (questionAttemptResolved) {
+    // Only set isSubmitting to false if not handled by setTimeout (i.e., question resolved now)
+    if (questionIsResolved) {
         setIsSubmitting(false);
     }
   };
@@ -383,7 +449,7 @@ export function NewQuizComponent({
                     size="icon"
                     className="text-muted-foreground hover:text-primary"
                     onClick={handleTextToSpeech}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !currentQuestion?.questionText}
                   >
                     <Volume2 size={18} />
                     <span className="sr-only">Leer pregunta</span>
@@ -403,7 +469,7 @@ export function NewQuizComponent({
                    <Button 
                     variant="ghost" 
                     size="icon" 
-                    disabled={!questionIsResolved || isTranslating || isSubmitting} 
+                    disabled={!questionIsResolved || isTranslating || isSubmitting || !currentQuestion?.questionText} 
                     className="text-muted-foreground hover:text-primary disabled:opacity-50"
                     onClick={handleTranslate}
                   >
@@ -461,13 +527,13 @@ export function NewQuizComponent({
                     } else { 
                       optionClass = 'opacity-70 cursor-not-allowed';
                     }
-                  } else if (currentQuestionAttempts === 1) { 
-                    if (isFirstAttemptFail) { 
+                  } else if (currentQuestionAttempts === 1) { // Durante el segundo intento
+                    if (isFirstAttemptFail) { // La opción que falló en el primer intento
                          optionClass = 'border-destructive bg-destructive/10 opacity-60 cursor-not-allowed';
-                    } else if (isCurrentlySelected) { 
+                    } else if (isCurrentlySelected) { // La opción seleccionada para el segundo intento
                          optionClass = 'border-primary ring-2 ring-primary bg-primary/10';
                     }
-                  } else if (isCurrentlySelected) { 
+                  } else if (isCurrentlySelected) { // Primer intento, opción seleccionada
                      optionClass = 'border-primary ring-2 ring-primary bg-primary/10';
                   }
                   
@@ -516,7 +582,7 @@ export function NewQuizComponent({
             </div>
           )}
 
-          {feedback && !isTranslating && !isTranslating && ( 
+          {feedback && !isTranslating && !isSubmitting && ( 
             <div
               className={`p-3 rounded-md flex items-center text-sm animate-fadeIn
                 ${feedback.type === 'correct' ? "bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400"
@@ -541,12 +607,11 @@ export function NewQuizComponent({
             disabled={isSubmitting || (!questionIsResolved && !selectedOptionId)}
             className="w-full sm:w-auto"
           >
-            {isSubmitting && !questionIsResolved ? <Loader2 className="animate-spin" /> : getButtonText()}
+            {isSubmitting && !questionIsResolved ? <Loader2 className="animate-spin mr-2" /> : null}
+            {getButtonText()}
           </Button>
         </CardFooter>
       </Card>
     </div>
   );
 }
-
-    
