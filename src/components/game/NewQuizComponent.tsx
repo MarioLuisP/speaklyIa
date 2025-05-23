@@ -16,7 +16,7 @@ import { NAV_PATHS } from "@/lib/constants";
 
 // Tipos internos para el componente después de procesar las preguntas originales
 interface ProcessedQuestionOption {
-  id: string; // ID único generado, ej: "q0-optA"
+  id: string; // ID único generado, ej: "q0-opt0"
   text: string;
   explanation: string;
   originalLabel: string; // 'A', 'B', 'C'
@@ -47,7 +47,7 @@ interface NewQuizComponentProps {
   pointsPerCorrectAnswer: number;
   pointsPerSecondAttempt?: number;
   onQuizComplete: (score: number, sessionData: QuizSessionDataItem[]) => void;
-  showExplanations?: boolean;
+  showExplanations?: boolean; // Esta prop podría eliminarse si las explicaciones siempre se muestran
   isLevelTest?: boolean;
 }
 
@@ -66,7 +66,7 @@ export function NewQuizComponent({
   pointsPerCorrectAnswer,
   pointsPerSecondAttempt = Math.floor(pointsPerCorrectAnswer / 2),
   onQuizComplete,
-  showExplanations = true, // No usado directamente, explicaciones se muestran en feedback
+  showExplanations = true,
   isLevelTest = false,
 }: NewQuizComponentProps) {
   const router = useRouter();
@@ -94,7 +94,6 @@ export function NewQuizComponent({
     setQuestionIsResolved(false);
     setFirstAttemptIncorrectOptionId(null);
     setFeedback(null);
-    // setIsSubmitting(false); // No resetear isSubmitting aquí para evitar problemas en transiciones rápidas
     setTranslatedText(null);
     setIsTranslating(false);
     setTranslationError(null);
@@ -102,45 +101,47 @@ export function NewQuizComponent({
 
   useEffect(() => {
     if (originalQuestions && originalQuestions.length > 0) {
-      const processedQs = originalQuestions.map((origQ, index) => {
-        const baseQuestionId = origQ.id || `q${index}`;
-        let derivedCorrectOptionId = '';
+      const processedQs: ProcessedQuestion[] = originalQuestions.map((origQ, questionIndex) => {
+        const questionId = origQ.id || `q${questionIndex}`;
+        let correctOptId = '';
 
-        const optionsWithFullData: ProcessedQuestionOption[] = origQ.options.map((apiOpt, optIndex) => {
-          const generatedOptionId = `${baseQuestionId}-opt${apiOpt.label || optIndex}`;
-          if (optIndex === 0) { // Asumimos que la primera opción en el JSON original es la correcta
-            derivedCorrectOptionId = generatedOptionId;
+        // Crear opciones procesadas con IDs únicos ANTES de mezclarlas
+        const processedOptions: ProcessedQuestionOption[] = origQ.options.map((apiOpt, optionIndex) => {
+          const currentOptionId = `${questionId}-opt${optionIndex}`; // ID basado en el índice original
+          if (optionIndex === 0) { // La primera opción en el JSON original es la correcta
+            correctOptId = currentOptionId;
           }
           return {
-            id: generatedOptionId,
+            id: currentOptionId,
             text: apiOpt.text,
             explanation: apiOpt.explanation,
             originalLabel: apiOpt.label,
           };
         });
-
-        const shuffledOptions = shuffleArray(optionsWithFullData);
         
-        return { // This is ProcessedQuestion
-          id: baseQuestionId,
-          questionText: origQ.question, // Este es el texto de la pregunta
-          options: shuffledOptions,
-          correctOptionId: derivedCorrectOptionId,
+        const shuffledProcessedOptions = shuffleArray(processedOptions);
+
+        return {
+          id: questionId,
+          questionText: origQ.question, // Asignación directa del texto de la pregunta
+          options: shuffledProcessedOptions,
+          correctOptionId: correctOptId, // ID de la opción correcta (ya identificada)
           type: origQ.type,
         };
       });
-      // console.log("Processed Questions:", JSON.stringify(processedQs, null, 2)); // Para depuración
       setShuffledQuestions(processedQs);
+      
+      // Resetear estados para el inicio de un nuevo quiz/set de preguntas
       setCurrentQuestionIndex(0);
       setScore(0);
       setQuizCompleted(false);
       setQuizSessionData([]);
-      // resetQuestionState() se llamará en el siguiente useEffect debido al cambio de currentQuestionIndex
+      // resetQuestionState se llamará debido al cambio de currentQuestionIndex a 0 (ver siguiente useEffect)
     } else {
-      setShuffledQuestions([]); // Manejar caso donde originalQuestions pueda vaciarse
+      setShuffledQuestions([]); // Si no hay preguntas originales, vaciar las procesadas
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [originalQuestions]); // Solo re-procesar si originalQuestions prop cambia
+  }, [originalQuestions]);
 
   useEffect(() => {
     resetQuestionState();
@@ -178,7 +179,7 @@ export function NewQuizComponent({
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
         <Card className="shadow-lg text-center w-full max-w-md">
           <CardHeader><CardTitle>Error</CardTitle></CardHeader>
-          <CardContent><p>No hay preguntas disponibles o el índice es inválido. Por favor, intentá recargar.</p></CardContent>
+          <CardContent><p>No hay preguntas disponibles o el índice es inválido ({currentQuestionIndex}/{totalQuestions}). Por favor, intentá recargar.</p></CardContent>
            <CardFooter className="justify-center">
             <Button onClick={() => router.push(NAV_PATHS.HOME)}>Volver a Inicio</Button>
           </CardFooter>
@@ -249,7 +250,6 @@ export function NewQuizComponent({
           else if (response.statusText) { errorMessage += `: ${response.statusText}`; }
           else { errorMessage += ": Error desconocido del servidor"; }
         } catch (e) {
-          // Si el parseo del JSON falla, usamos el statusText o un mensaje genérico
           if (response.statusText) { errorMessage += `: ${response.statusText}`; }
            else { errorMessage += ": Error desconocido del servidor (cuerpo no JSON)"; }
         }
@@ -259,7 +259,7 @@ export function NewQuizComponent({
       const data = await response.json();
       if (data.responseData && data.responseData.translatedText && !data.responseData.translatedText.includes("NO QUERY SPECIFIED")) {
         setTranslatedText(data.responseData.translatedText);
-      } else if (data.responseDetails || data.responseData?.translatedText.includes("NO QUERY SPECIFIED")) {
+      } else if (data.responseDetails || data.responseData?.translatedText?.includes("NO QUERY SPECIFIED")) {
         throw new Error(`Error de traducción: ${data.responseDetails || "Respuesta no válida de la API."}`);
       } else {
         throw new Error("Respuesta de traducción no válida o vacía.");
@@ -289,13 +289,16 @@ export function NewQuizComponent({
   const handleSubmitOrNext = () => {
     if (quizCompleted || isSubmitting) return; 
     
-    if (questionIsResolved) {
+    if (questionIsResolved) { // User is clicking "Siguiente Pregunta" or "Ver Resultados"
+      setIsSubmitting(true); // Prevent multiple clicks while transitioning
       if (currentQuestionIndex < totalQuestions - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
+        // resetQuestionState() is called by useEffect watching currentQuestionIndex
       } else {
         setQuizCompleted(true);
         onQuizComplete(score, quizSessionData);
       }
+      setIsSubmitting(false); // Re-enable for next screen or if something goes wrong
       return; 
     }
 
@@ -340,20 +343,18 @@ export function NewQuizComponent({
         
         setFeedback({type: feedbackType, message: feedbackMessage});
         setTimeout(() => {
-          // Solo limpiar feedback, no la selección, para que el usuario vea su error
-          // y pueda elegir otra opción. El botón se reactivará.
-          if (currentQuestionAttempts === 1 && !questionIsResolved) { 
-             setFeedback(null);
-             // setSelectedOptionId(null); // No resetear aquí, permite que el usuario elija otra
+          if (currentQuestionAttempts === 1 && !questionIsResolved) { // Check if still in 2nd attempt mode
+             setFeedback(null); // Clear temporary feedback
+             setSelectedOptionId(null); // Clear selection to force new choice
           }
           setIsSubmitting(false); 
         }, 1500); 
         return; 
-      } else { 
+      } else { // Second attempt and still incorrect
         setQuestionIsResolved(true);
         questionAttemptResolved = true;
         feedbackType = 'finalIncorrect';
-        feedbackMessage = `Incorrecto. ${selectedOptionObject.explanation || ''} La respuesta correcta era "${correctOptionObject.text}". Explicación: ${correctOptionObject.explanation || ''}`;
+        feedbackMessage = `Incorrecto. ${selectedOptionObject.explanation || ''} <br/>La respuesta correcta era "${correctOptionObject.text}". <br/>Explicación: ${correctOptionObject.explanation || ''}`;
       }
     }
     
@@ -371,13 +372,25 @@ export function NewQuizComponent({
       ]);
     }
     
-    if(questionAttemptResolved){ // Solo si la pregunta se resuelve, permitir avanzar
-        setIsSubmitting(false);
-    }
+    setIsSubmitting(false); // Re-enable button after processing, unless we returned early
   };
 
   const handleRepeatPractice = () => {
-    setShuffledQuestions(prev => shuffleArray([...prev])); // Re-shuffle
+    // Re-shuffle the original questions to get a new order for the same set
+    if (originalQuestions && originalQuestions.length > 0) {
+      const reProcessedQs: ProcessedQuestion[] = originalQuestions.map((origQ, questionIndex) => {
+        const questionId = origQ.id || `q${questionIndex}`;
+        let correctOptId = '';
+        const processedOptions: ProcessedQuestionOption[] = origQ.options.map((apiOpt, optionIndex) => {
+          const currentOptionId = `${questionId}-opt${optionIndex}`;
+          if (optionIndex === 0) { correctOptId = currentOptionId; }
+          return { id: currentOptionId, text: apiOpt.text, explanation: apiOpt.explanation, originalLabel: apiOpt.label };
+        });
+        const shuffledProcessedOptions = shuffleArray(processedOptions);
+        return { id: questionId, questionText: origQ.question, options: shuffledProcessedOptions, correctOptionId: correctOptId, type: origQ.type };
+      });
+      setShuffledQuestions(reProcessedQs);
+    }
     setCurrentQuestionIndex(0);
     setScore(0);
     setQuizCompleted(false);
@@ -613,4 +626,3 @@ export function NewQuizComponent({
     </div>
   );
 }
-
