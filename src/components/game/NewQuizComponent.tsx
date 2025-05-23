@@ -11,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, CheckCircle2, Award, Info, Volume2, Languages, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { Question as OriginalQuestion, ApiQuestionOption } from '@/types'; // OriginalQuestion ahora es la estructura del JSON
+import type { Question as OriginalQuestion, ApiQuestionOption } from '@/types'; // OriginalQuestion es Question de src/types
 import { NAV_PATHS } from "@/lib/constants";
 
 // Tipos internos para el componente después de procesar las preguntas originales
@@ -42,12 +42,12 @@ export interface QuizSessionDataItem {
 }
 
 interface NewQuizComponentProps {
-  questions: OriginalQuestion[]; // Ahora espera el tipo de dato del JSON
+  questions: OriginalQuestion[];
   quizTitle: string;
   pointsPerCorrectAnswer: number;
   pointsPerSecondAttempt?: number;
   onQuizComplete: (score: number, sessionData: QuizSessionDataItem[]) => void;
-  showExplanations?: boolean; // Podría usarse para controlar si se muestran explicaciones detalladas
+  showExplanations?: boolean;
   isLevelTest?: boolean;
 }
 
@@ -66,7 +66,7 @@ export function NewQuizComponent({
   pointsPerCorrectAnswer,
   pointsPerSecondAttempt = Math.floor(pointsPerCorrectAnswer / 2),
   onQuizComplete,
-  showExplanations = true, // Actualmente, las explicaciones siempre se usan en el feedback
+  showExplanations = true,
   isLevelTest = false,
 }: NewQuizComponentProps) {
   const router = useRouter();
@@ -88,19 +88,30 @@ export function NewQuizComponent({
   const [isTranslating, setIsTranslating] = useState(false);
   const [translationError, setTranslationError] = useState<string | null>(null);
 
+  const resetQuestionState = useCallback(() => {
+    setSelectedOptionId(null);
+    setCurrentQuestionAttempts(0);
+    setQuestionIsResolved(false);
+    setFirstAttemptIncorrectOptionId(null);
+    setFeedback(null);
+    // setIsSubmitting(false); // No resetear isSubmitting aquí para evitar problemas en transiciones rápidas
+    setTranslatedText(null);
+    setIsTranslating(false);
+    setTranslationError(null);
+  }, []);
+
   useEffect(() => {
     if (originalQuestions && originalQuestions.length > 0) {
       const processedQs = originalQuestions.map((origQ, index) => {
-        const baseQuestionId = origQ.id || `q${index}`; // ej: "q0"
+        const baseQuestionId = origQ.id || `q${index}`;
         let derivedCorrectOptionId = '';
 
-        // Mapear ApiQuestionOption a ProcessedQuestionOption, generando IDs
         const optionsWithFullData = origQ.options.map((apiOpt, optIndex) => {
           const generatedOptionId = `${baseQuestionId}-opt${apiOpt.label || optIndex}`;
           if (optIndex === 0) { // API spec: primera opción es la correcta
             derivedCorrectOptionId = generatedOptionId;
           }
-          return { // Esto debe coincidir con ProcessedQuestionOption
+          return {
             id: generatedOptionId,
             text: apiOpt.text,
             explanation: apiOpt.explanation,
@@ -110,53 +121,36 @@ export function NewQuizComponent({
 
         const shuffledOptions = shuffleArray(optionsWithFullData);
         
-        return { // Esto debe coincidir con ProcessedQuestion
+        return {
           id: baseQuestionId,
-          questionText: origQ.question, // Mapear del campo 'question' del JSON
+          questionText: origQ.question,
           options: shuffledOptions,
           correctOptionId: derivedCorrectOptionId,
           type: origQ.type,
         };
       });
       setShuffledQuestions(processedQs);
-      // Reiniciar estados del quiz si las preguntas cambian fundamentalmente
       setCurrentQuestionIndex(0);
       setScore(0);
       setQuizCompleted(false);
       setQuizSessionData([]);
-      resetQuestionState();
-
+      // resetQuestionState() will be called by the useEffect below due to currentQuestionIndex change
     } else {
-      setShuffledQuestions([]);
+      setShuffledQuestions([]); // Handle case where originalQuestions might become empty
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [originalQuestions]);
-
-
-  const resetQuestionState = useCallback(() => {
-    setSelectedOptionId(null);
-    setCurrentQuestionAttempts(0);
-    setQuestionIsResolved(false);
-    setFirstAttemptIncorrectOptionId(null);
-    setFeedback(null);
-    setIsSubmitting(false);
-    setTranslatedText(null);
-    setIsTranslating(false);
-    setTranslationError(null);
-  }, []);
+  }, [originalQuestions]); // Only re-process if originalQuestions prop itself changes
 
   useEffect(() => {
     resetQuestionState();
-  }, [currentQuestionIndex, resetQuestionState]);
+  }, [currentQuestionIndex, resetQuestionState]); // resetQuestionState is memoized
 
 
-  if (shuffledQuestions.length === 0 && !originalQuestions?.length) { // Check if originalQuestions was also empty
+  if (!originalQuestions || originalQuestions.length === 0) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
         <Card className="shadow-lg text-center w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Cargando Preguntas...</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Cargando Preguntas...</CardTitle></CardHeader>
           <CardContent>
             <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
             <p className="mt-2">Por favor, esperá un momento.</p>
@@ -166,8 +160,8 @@ export function NewQuizComponent({
     );
   }
   
-  if (shuffledQuestions.length === 0 && originalQuestions?.length) { // originalQuestions exist but processed ones are not ready (should be quick)
-    return ( // Or some loading state, but usually this transition is too fast to notice if logic is sync
+  if (shuffledQuestions.length === 0) {
+     return ( 
        <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
          <Card className="shadow-lg text-center w-full max-w-md">
            <CardHeader><CardTitle>Preparando Quiz...</CardTitle></CardHeader>
@@ -177,19 +171,17 @@ export function NewQuizComponent({
     );
   }
 
-
   const totalQuestions = shuffledQuestions.length;
-  // Prevenir error si shuffledQuestions está vacío temporalmente o currentQuestionIndex es inválido
-  if (totalQuestions === 0 || currentQuestionIndex >= totalQuestions) {
-     return ( // O un estado de error más robusto
-       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
+  const currentQuestion = shuffledQuestions[currentQuestionIndex];
+
+  if (!currentQuestion) {
+    // This state should ideally not be reached if previous checks are correct,
+    // but it's a good safeguard.
+    return (
+      <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
         <Card className="shadow-lg text-center w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Error</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>No se pudieron cargar las preguntas. Por favor, intentá de nuevo.</p>
-          </CardContent>
+          <CardHeader><CardTitle>Error</CardTitle></CardHeader>
+          <CardContent><p>No se pudo cargar la pregunta actual. Por favor, intentá recargar.</p></CardContent>
            <CardFooter className="justify-center">
             <Button onClick={() => router.push(NAV_PATHS.HOME)}>Volver a Inicio</Button>
           </CardFooter>
@@ -197,17 +189,15 @@ export function NewQuizComponent({
       </div>
      );
   }
-  const currentQuestion = shuffledQuestions[currentQuestionIndex];
-
 
   const handleTextToSpeech = () => {
-    if (!currentQuestion) return;
+    if (!currentQuestion?.questionText) return;
     const textToSpeak = currentQuestion.questionText;
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel(); // Cancel any previous speech
+      window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
       utterance.lang = 'en-US';
-      utterance.rate = 0.8; 
+      utterance.rate = 0.8;
       window.speechSynthesis.speak(utterance);
     } else {
       console.warn('Speech Synthesis API no está soportada en este navegador.');
@@ -217,7 +207,7 @@ export function NewQuizComponent({
   };
 
   const handleTranslate = async () => {
-    if (!currentQuestion || !currentQuestion.questionText || isTranslating) return;
+    if (!currentQuestion?.questionText || isTranslating) return;
     setIsTranslating(true);
     setTranslatedText(null);
     setTranslationError(null);
@@ -225,53 +215,34 @@ export function NewQuizComponent({
       const encodedQuery = encodeURIComponent(currentQuestion.questionText);
       const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodedQuery}&langpair=en|es`);
       
-      let errorData;
       let errorMessage = `Error de traducción (${response.status})`;
-
       if (!response.ok) {
         try {
-          errorData = await response.json();
-          if (errorData?.responseDetails) { 
-            errorMessage += `: ${errorData.responseDetails}`;
-          } else if (errorData?.message) { 
-             errorMessage += `: ${errorData.message}`;
-          } else if (errorData?.match && typeof errorData.match === 'number' && errorData.match < 0.5 && errorData.responseData?.translatedText) {
-             // MyMemory sometimes returns 200 OK but low match and "NO QUERY SPECIFIED!"
-             // If match is low but translatedText is there, consider it an error of quality
-            if(errorData.responseData.translatedText.includes("NO QUERY SPECIFIED")){
-                errorMessage += ": No se especificó consulta o hubo un problema con la API.";
-            } else {
-                // Use the text but maybe flag as low quality if desired. For now, treat as ok.
-            }
-          } else if (response.statusText) {
-            errorMessage += `: ${response.statusText}`;
-          } else {
-             errorMessage += ": Error desconocido del servidor";
-          }
+          const errorData = await response.json();
+          if (errorData?.responseDetails) { errorMessage += `: ${errorData.responseDetails}`; }
+          else if (errorData?.match && typeof errorData.match === 'number' && errorData.match < 0.5 && errorData.responseData?.translatedText?.includes("NO QUERY SPECIFIED")) {
+            errorMessage += ": No se especificó consulta o hubo un problema con la API.";
+          } else if (errorData?.message) { errorMessage += `: ${errorData.message}`; }
+          else if (response.statusText) { errorMessage += `: ${response.statusText}`; }
+          else { errorMessage += ": Error desconocido del servidor"; }
         } catch (e) {
-           // Failed to parse JSON body
-           if (response.statusText) {
-            errorMessage += `: ${response.statusText}`;
-          } else {
-            errorMessage += ": Error desconocido del servidor";
-          }
+          if (response.statusText) { errorMessage += `: ${response.statusText}`; }
+           else { errorMessage += ": Error desconocido del servidor"; }
         }
         throw new Error(errorMessage);
       }
 
       const data = await response.json();
-
       if (data.responseData && data.responseData.translatedText && !data.responseData.translatedText.includes("NO QUERY SPECIFIED")) {
         setTranslatedText(data.responseData.translatedText);
-      } else if (data.responseDetails || data.responseData?.translatedText.includes("NO QUERY SPECIFIED")) { 
+      } else if (data.responseDetails || data.responseData?.translatedText.includes("NO QUERY SPECIFIED")) {
         throw new Error(`Error de traducción: ${data.responseDetails || "Respuesta no válida de la API."}`);
       } else {
         throw new Error("Respuesta de traducción no válida o vacía.");
       }
     } catch (error: any) {
       console.error("Error al traducir:", error);
-      const displayError = error?.message || "No se pudo traducir el texto. Intente más tarde.";
-      setTranslationError(displayError);
+      setTranslationError(error?.message || "No se pudo traducir el texto.");
     } finally {
       setIsTranslating(false);
     }
@@ -279,25 +250,22 @@ export function NewQuizComponent({
 
   const handleOptionSelect = (optionId: string) => {
     if (questionIsResolved || isSubmitting) return;
-    // Allow selection if it's the first attempt, or
-    // if it's the second attempt and the selected option is not the one that failed first
     if (currentQuestionAttempts === 0 || (currentQuestionAttempts === 1 && optionId !== firstAttemptIncorrectOptionId)) {
       setSelectedOptionId(optionId);
     }
-    if (feedback && feedback.type === 'incorrect') { 
+    if (feedback && (feedback.type === 'incorrect' || feedback.type === 'info')) { 
       setFeedback(null); 
     }
-    if (translatedText || translationError) { // Clear translation when user interacts with options
+    if (translatedText || translationError) {
         setTranslatedText(null);
         setTranslationError(null);
     }
   };
 
   const handleSubmitOrNext = () => {
-    if (quizCompleted) return; 
+    if (quizCompleted || isSubmitting) return; 
     
-    if (questionIsResolved) { // Logic for "Siguiente Pregunta" or "Ver Resultados"
-      setIsSubmitting(false); // Ensure button is enabled for next action
+    if (questionIsResolved) {
       if (currentQuestionIndex < totalQuestions - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
       } else {
@@ -311,7 +279,7 @@ export function NewQuizComponent({
       setFeedback({type: 'info', message: "Por favor, seleccioná una respuesta."});
       return;
     }
-    if (isSubmitting) return; 
+    
     setIsSubmitting(true);
 
     const attemptsForThisTurn = currentQuestionAttempts + 1;
@@ -323,11 +291,13 @@ export function NewQuizComponent({
     
     let feedbackMessage = "";
     let feedbackType: 'correct' | 'incorrect' | 'finalIncorrect' = 'incorrect';
+    let questionAttemptResolved = false;
 
     if (isCorrect) {
       pointsEarnedThisTurn = attemptsForThisTurn === 1 ? pointsPerCorrectAnswer : (pointsPerSecondAttempt || 0);
       setScore(prevScore => prevScore + pointsEarnedThisTurn);
       setQuestionIsResolved(true);
+      questionAttemptResolved = true;
       feedbackType = 'correct';
       feedbackMessage = `¡Correcto! ${selectedOptionObject?.explanation || ''} Ganaste +${pointsEarnedThisTurn} puntos.`;
     } else { 
@@ -336,30 +306,29 @@ export function NewQuizComponent({
         setFirstAttemptIncorrectOptionId(selectedOptionId);
         feedbackType = 'incorrect';
         feedbackMessage = `Respuesta incorrecta. ${selectedOptionObject?.explanation || ''} ¡Intentá de nuevo!`;
-        setFeedback({type: feedbackType, message: feedbackMessage});
         
-        // Delay and reset for second attempt
+        setFeedback({type: feedbackType, message: feedbackMessage});
         setTimeout(() => {
-          if (currentQuestionAttempts === 1 && !questionIsResolved) { // Check if still relevant
+          if (currentQuestionAttempts === 1 && !questionIsResolved) {
              setFeedback(null);
-             setSelectedOptionId(null); // Clear selection for a fresh second attempt choice
+             setSelectedOptionId(null); // Limpiar selección para forzar nueva elección
           }
           setIsSubmitting(false); 
         }, 1500); 
-        return; // Exit early, wait for user's second attempt
-      } else { // Second attempt, and still incorrect
+        return; 
+      } else { 
         setQuestionIsResolved(true);
+        questionAttemptResolved = true;
         feedbackType = 'finalIncorrect';
-        const correctExplanationText = correctOptionObject?.explanation || '';
-        const selectedExplanationText = selectedOptionObject?.explanation || '';
-        feedbackMessage = `Incorrecto. ${selectedExplanationText} La respuesta correcta era "${correctOptionObject?.text || 'desconocida'}". Explicación: ${correctExplanationText}`;
+        const correctExplanation = correctOptionObject?.explanation || '';
+        const selectedExplanation = selectedOptionObject?.explanation || '';
+        feedbackMessage = `Incorrecto. ${selectedExplanation} La respuesta correcta era "${correctOptionObject?.text || 'desconocida'}". Explicación: ${correctExplanation}`;
       }
     }
     
     setFeedback({type: feedbackType, message: feedbackMessage});
     
-    // Record session data when question is fully resolved
-    if (questionIsResolved) {
+    if (questionAttemptResolved) { // Changed from questionIsResolved for immediate effect
       setQuizSessionData(prevData => [
         ...prevData,
         {
@@ -371,13 +340,16 @@ export function NewQuizComponent({
       ]);
     }
     
-    // Only set isSubmitting to false if not handled by setTimeout (i.e., question resolved now)
-    if (questionIsResolved) {
+    if(questionAttemptResolved){
         setIsSubmitting(false);
     }
   };
 
   const handleRepeatPractice = () => {
+    // Re-initialize by resetting originalQuestions if it's managed by a parent that can re-trigger the effect
+    // For now, just reset internal state. If originalQuestions can change, parent should manage.
+    // Or, if originalQuestions is static, this is fine.
+    setShuffledQuestions(shuffleArray(shuffledQuestions)); // Re-shuffle existing for variety
     setCurrentQuestionIndex(0);
     setScore(0);
     setQuizCompleted(false);
@@ -527,13 +499,13 @@ export function NewQuizComponent({
                     } else { 
                       optionClass = 'opacity-70 cursor-not-allowed';
                     }
-                  } else if (currentQuestionAttempts === 1) { // Durante el segundo intento
-                    if (isFirstAttemptFail) { // La opción que falló en el primer intento
+                  } else if (currentQuestionAttempts === 1) { 
+                    if (isFirstAttemptFail) { 
                          optionClass = 'border-destructive bg-destructive/10 opacity-60 cursor-not-allowed';
-                    } else if (isCurrentlySelected) { // La opción seleccionada para el segundo intento
+                    } else if (isCurrentlySelected) { 
                          optionClass = 'border-primary ring-2 ring-primary bg-primary/10';
                     }
-                  } else if (isCurrentlySelected) { // Primer intento, opción seleccionada
+                  } else if (isCurrentlySelected) { 
                      optionClass = 'border-primary ring-2 ring-primary bg-primary/10';
                   }
                   
@@ -615,3 +587,4 @@ export function NewQuizComponent({
     </div>
   );
 }
+
