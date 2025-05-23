@@ -11,10 +11,22 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, CheckCircle2, Award, Info, Volume2, Languages, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { Question } from '@/types';
+import type { Question as OriginalQuestion, QuestionOption as OriginalQuestionOption } from '@/types'; // Renamed to avoid conflict
 import { NAV_PATHS } from "@/lib/constants";
 
-export interface QuizSessionDataItem { // Exportando la interfaz
+// Internal types for shuffled questions
+interface ShuffledQuestionOption extends OriginalQuestionOption {
+  originalLabel: string; // To keep track of 'A', 'B', 'C' if needed later
+}
+
+interface ProcessedQuestion extends Omit<OriginalQuestion, 'options' | 'correctOptionId'> {
+  questionText: string;
+  options: ShuffledQuestionOption[];
+  correctOptionId: string; // This will be the ID of the correct option after shuffling
+}
+
+
+export interface QuizSessionDataItem {
   questionId: string;
   questionText: string;
   selectedOptionId: string | null;
@@ -26,7 +38,7 @@ export interface QuizSessionDataItem { // Exportando la interfaz
 }
 
 interface NewQuizComponentProps {
-  questions: Question[];
+  questions: OriginalQuestion[];
   quizTitle: string;
   pointsPerCorrectAnswer: number;
   pointsPerSecondAttempt?: number;
@@ -35,8 +47,17 @@ interface NewQuizComponentProps {
   isLevelTest?: boolean;
 }
 
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const newArray = [...array];
+  for (let i = newArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  }
+  return newArray;
+};
+
 export function NewQuizComponent({
-  questions,
+  questions: originalQuestions,
   quizTitle,
   pointsPerCorrectAnswer,
   pointsPerSecondAttempt = Math.floor(pointsPerCorrectAnswer / 2),
@@ -45,6 +66,7 @@ export function NewQuizComponent({
   isLevelTest = false,
 }: NewQuizComponentProps) {
   const router = useRouter();
+  const [shuffledQuestions, setShuffledQuestions] = useState<ProcessedQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [score, setScore] = useState(0);
@@ -61,6 +83,41 @@ export function NewQuizComponent({
   const [translatedText, setTranslatedText] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const [translationError, setTranslationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (originalQuestions && originalQuestions.length > 0) {
+      const processed = originalQuestions.map((q, index) => {
+        // The API format has the first option as correct.
+        // We need to assign unique IDs to options if they don't have them,
+        // or use existing 'label' if it's meant to be the ID.
+        // For simplicity, let's use the original 'label' as 'id' if present, or generate one.
+        let correctOptId = '';
+        const optionsWithIdsAndOriginalLabel = q.options.map((opt, optIndex) => {
+          const uniqueOptionId = `${q.id || `q${index}`}-opt${opt.label || optIndex}`;
+          if (optIndex === 0) { // Assuming first option is always correct from API
+            correctOptId = uniqueOptionId;
+          }
+          return {
+            ...opt,
+            id: uniqueOptionId,
+            originalLabel: opt.label, // Store original A, B, C label
+          };
+        });
+
+        const shuffledOpts = shuffleArray(optionsWithIdsAndOriginalLabel);
+        
+        return {
+          ...q,
+          id: q.id || `q${index}`, // Ensure question has an ID
+          questionText: q.questionText,
+          options: shuffledOpts,
+          correctOptionId: correctOptId, // This is the ID of the *original* first option
+        };
+      });
+      setShuffledQuestions(processed);
+    }
+  }, [originalQuestions]);
+
 
   const resetQuestionState = useCallback(() => {
     setSelectedOptionId(null);
@@ -79,7 +136,7 @@ export function NewQuizComponent({
   }, [currentQuestionIndex, resetQuestionState]);
 
 
-  if (!questions || questions.length === 0) {
+  if (shuffledQuestions.length === 0) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
         <Card className="shadow-lg text-center w-full max-w-md">
@@ -97,14 +154,14 @@ export function NewQuizComponent({
     );
   }
 
-  const totalQuestions = questions.length;
-  const currentQuestion = questions[currentQuestionIndex];
+  const totalQuestions = shuffledQuestions.length;
+  const currentQuestion = shuffledQuestions[currentQuestionIndex];
 
   const handleTextToSpeech = () => {
     if (!currentQuestion) return;
-    const textToSpeak = currentQuestion.text;
+    const textToSpeak = currentQuestion.questionText;
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel(); // Cancel any previous speech
+      window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
       utterance.lang = 'en-US';
       utterance.rate = 0.8; 
@@ -117,30 +174,26 @@ export function NewQuizComponent({
   };
 
   const handleTranslate = async () => {
-    if (!currentQuestion || !currentQuestion.text || isTranslating) return;
-
+    if (!currentQuestion || !currentQuestion.questionText || isTranslating) return;
     setIsTranslating(true);
     setTranslatedText(null);
     setTranslationError(null);
-
     try {
-      const encodedQuery = encodeURIComponent(currentQuestion.text);
-      // Using MyMemory API
+      const encodedQuery = encodeURIComponent(currentQuestion.questionText);
       const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodedQuery}&langpair=en|es`);
-
       if (!response.ok) {
         let errorData;
         let errorMessage = `Error de traducción (${response.status})`;
         try {
           errorData = await response.json();
-          if (errorData?.responseDetails) { // MyMemory specific error field
+          if (errorData?.responseDetails) { 
             errorMessage += `: ${errorData.responseDetails}`;
-          } else if (errorData?.message) { // Generic message field
+          } else if (errorData?.message) { 
              errorMessage += `: ${errorData.message}`;
           } else if (response.statusText) {
             errorMessage += `: ${response.statusText}`;
           } else {
-            errorMessage += ": Error desconocido del servidor";
+             errorMessage += ": Error desconocido del servidor";
           }
         } catch (e) {
            if (response.statusText) {
@@ -151,12 +204,10 @@ export function NewQuizComponent({
         }
         throw new Error(errorMessage);
       }
-
       const data = await response.json();
-      // MyMemory specific success field
       if (data.responseData && data.responseData.translatedText) {
         setTranslatedText(data.responseData.translatedText);
-      } else if (data.responseDetails) { // MyMemory specific error field even on 200 OK
+      } else if (data.responseDetails) { 
         throw new Error(`Error de traducción: ${data.responseDetails}`);
       } else {
         throw new Error("Respuesta de traducción no válida o vacía.");
@@ -170,14 +221,10 @@ export function NewQuizComponent({
     }
   };
 
-
   const handleOptionSelect = (optionId: string) => {
     if (questionIsResolved || isSubmitting) return;
-    // Allow selection only if it's not the first incorrect attempt or if the question isn't resolved
     if (currentQuestionAttempts === 1 && optionId === firstAttemptIncorrectOptionId) return;
-
     setSelectedOptionId(optionId);
-    
     if (feedback && feedback.type === 'incorrect') { 
       setFeedback(null); 
     }
@@ -189,7 +236,6 @@ export function NewQuizComponent({
 
   const handleSubmitOrNext = () => {
     if (quizCompleted) return; 
-
     if (questionIsResolved) { 
       if (currentQuestionIndex < totalQuestions - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
@@ -204,7 +250,6 @@ export function NewQuizComponent({
       setFeedback({type: 'info', message: "Por favor, seleccioná una respuesta."});
       return;
     }
-
     if (isSubmitting) return; 
     setIsSubmitting(true);
 
@@ -213,25 +258,28 @@ export function NewQuizComponent({
     let pointsEarnedThisTurn = 0;
     let questionAttemptResolved = false; 
 
-    const selectedOpt = currentQuestion.options.find(o => o.id === selectedOptionId);
-    const correctOpt = currentQuestion.options.find(o => o.id === currentQuestion.correctOptionId);
+    const selectedOptionObject = currentQuestion.options.find(o => o.id === selectedOptionId);
+    const correctOptionObject = currentQuestion.options.find(o => o.id === currentQuestion.correctOptionId);
+    
+    let feedbackMessage = "";
 
     if (isCorrect) {
       pointsEarnedThisTurn = attemptsForThisTurn === 1 ? pointsPerCorrectAnswer : (pointsPerSecondAttempt || 0);
       setScore(prevScore => prevScore + pointsEarnedThisTurn);
       setQuestionIsResolved(true);
       questionAttemptResolved = true;
-      setFeedback({type: 'correct', message: `¡Correcto! Ganaste +${pointsEarnedThisTurn} puntos.`});
+      feedbackMessage = `¡Correcto! ${selectedOptionObject?.explanation || ''} Ganaste +${pointsEarnedThisTurn} puntos.`;
+      setFeedback({type: 'correct', message: feedbackMessage});
     } else { 
       if (attemptsForThisTurn === 1) { 
         setCurrentQuestionAttempts(1);
         setFirstAttemptIncorrectOptionId(selectedOptionId);
-        setFeedback({type: 'incorrect', message: "Respuesta incorrecta. ¡Intentá de nuevo!"});
-        
+        feedbackMessage = `Respuesta incorrecta. ${selectedOptionObject?.explanation || ''} ¡Intentá de nuevo!`;
+        setFeedback({type: 'incorrect', message: feedbackMessage});
         setTimeout(() => {
           if (currentQuestionAttempts === 1 && !questionIsResolved && feedback?.type === 'incorrect') { 
              setFeedback(null);
-             setSelectedOptionId(null); 
+             // setSelectedOptionId(null); // No limpiar para que el botón se habilite con la nueva selección
           }
           setIsSubmitting(false); 
         }, 1500); 
@@ -239,17 +287,10 @@ export function NewQuizComponent({
       } else { 
         setQuestionIsResolved(true);
         questionAttemptResolved = true;
-        let finalFeedbackMessage = 'Respuesta incorrecta.';
-        const correctOptionText = correctOpt?.text || 'desconocida';
-        if (showExplanations) {
-          finalFeedbackMessage = `Incorrecto. La respuesta correcta era "${correctOptionText}".`;
-          if (currentQuestion.explanation) {
-            finalFeedbackMessage += ` ${currentQuestion.explanation}`;
-          } else if (currentQuestion.type === 'vocabulary' && currentQuestion.translation) {
-             finalFeedbackMessage = `Incorrecto. La palabra "${currentQuestion.text}" significa: ${currentQuestion.translation}. La respuesta correcta era "${correctOptionText}".`;
-          }
-        }
-        setFeedback({type: 'finalIncorrect', message: finalFeedbackMessage});
+        const correctExplanation = correctOptionObject?.explanation || '';
+        const selectedExplanation = selectedOptionObject?.explanation || '';
+        feedbackMessage = `Incorrecto. ${selectedExplanation} La respuesta correcta era "${correctOptionObject?.text || 'desconocida'}". Explicación: ${correctExplanation}`;
+        setFeedback({type: 'finalIncorrect', message: feedbackMessage});
       }
     }
     
@@ -257,9 +298,9 @@ export function NewQuizComponent({
       setQuizSessionData(prevData => [
         ...prevData,
         {
-          questionId: currentQuestion.id, questionText: currentQuestion.text,
-          selectedOptionId: selectedOptionId, selectedOptionText: selectedOpt?.text || '',
-          correctOptionId: currentQuestion.correctOptionId, correctOptionText: correctOpt?.text || '',
+          questionId: currentQuestion.id, questionText: currentQuestion.questionText,
+          selectedOptionId: selectedOptionId, selectedOptionText: selectedOptionObject?.text || '',
+          correctOptionId: currentQuestion.correctOptionId, correctOptionText: correctOptionObject?.text || '',
           isCorrect: isCorrect, attempts: attemptsForThisTurn
         }
       ]);
@@ -327,7 +368,7 @@ export function NewQuizComponent({
     );
   }
 
-  const questionDisplayTitle = currentQuestion.text;
+  const questionDisplayTitle = currentQuestion.questionText;
 
   return (
     <div className="p-4 space-y-6 flex flex-col items-center">
@@ -486,7 +527,7 @@ export function NewQuizComponent({
               {feedback.type === 'correct' ? <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
                 : feedback.type === 'info' ? <Info className="mr-2 h-4 w-4 shrink-0" />
                 : <AlertCircle className="mr-2 h-4 w-4 shrink-0" />}
-              <span className="leading-snug">{feedback.message}</span>
+              <span className="leading-snug" dangerouslySetInnerHTML={{ __html: feedback.message.replace(/\n/g, "<br />") }}></span>
             </div>
           )}
         </CardContent>
@@ -507,3 +548,5 @@ export function NewQuizComponent({
     </div>
   );
 }
+
+    
