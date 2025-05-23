@@ -6,15 +6,15 @@ import type { UserProfile } from '@/types';
 import { UserAvatar } from '@/components/UserAvatar';
 import { Button } from '@/components/ui/button';
 import { Shield, Star, Zap, Edit3, Mail, LogOut, Save } from 'lucide-react';
-import { Input } from '@/components/ui/input'; // Shadcn Input
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { Input } from '@/components/ui/input'; 
+import { useRouter } from 'next/navigation'; 
 
 // Mock user data - replace with actual data fetching
 const mockUser: UserProfile = {
   id: '1',
-  name: 'Usuario Demo',
-  email: 'demo@example.com',
-  avatarUrl: 'https://placehold.co/150x150.png?text=UD',
+  name: 'Mario',
+  email: 'mario@example.com',
+  avatarUrl: 'https://placehold.co/150x150.png?text=M',
   dataAihint: "user avatar",
   level: 'Novato',
   xp: 75,
@@ -35,14 +35,10 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(user.name);
   const [editEmail, setEditEmail] = useState(user.email);
-  const router = useRouter(); // Initialize router
-
-  // Avatar editing would typically involve file upload, simplified here
-  // const [editAvatarUrl, setEditAvatarUrl] = useState(user.avatarUrl);
+  const router = useRouter(); 
 
   const handleEditToggle = () => {
     if (isEditing) {
-      // Save logic (mock)
       setUser(prev => ({ ...prev, name: editName, email: editEmail }));
       console.log("Profile saved:", { name: editName, email: editEmail });
     } else {
@@ -53,9 +49,8 @@ export default function ProfilePage() {
   };
 
   const handleLogout = () => {
-    // In a real app, you would clear authentication tokens, session data, etc.
     console.log("User logged out, redirecting to login...");
-    router.push('/login'); // Redirect to login page
+    router.push('/login'); 
   };
 
   return (
@@ -129,7 +124,7 @@ export default function ProfilePage() {
               {isEditing ? <Save size={18} className="mr-2"/> : <Edit3 size={18} className="mr-2"/>}
               {isEditing ? 'Guardar Cambios' : 'Editar Perfil'}
             </Button>
-            <Button className="btn btn-ghost" onClick={handleLogout}> {/* Added onClick handler */}
+            <Button className="btn btn-ghost" onClick={handleLogout}> 
               <LogOut size={18} className="mr-2" />
               Cerrar Sesión
             </Button>

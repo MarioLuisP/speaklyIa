@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -8,9 +9,9 @@ import { TrendingUp, Zap, Shield, Star, Award } from 'lucide-react';
 // Mock data
 const mockCurrentUser: UserProfile = {
   id: '1',
-  name: 'Usuario Demo',
-  email: 'demo@example.com',
-  avatarUrl: 'https://placehold.co/100x100.png?text=UD',
+  name: 'Mario',
+  email: 'mario@example.com',
+  avatarUrl: 'https://placehold.co/100x100.png?text=M',
   dataAihint: "profile avatar",
   level: 'Novato',
   xp: 75,
@@ -23,7 +24,7 @@ const mockCurrentUser: UserProfile = {
 const mockLeaderboard: LeaderboardUser[] = [
   { id: '2', name: 'Ana C.', avatarUrl: 'https://placehold.co/40x40.png?text=AC', dataAihint: "leaderboard avatar", xp: 1250, level: 'Experto' },
   { id: '3', name: 'Luis G.', avatarUrl: 'https://placehold.co/40x40.png?text=LG', dataAihint: "leaderboard avatar", xp: 980, level: 'Intermedio' },
-  { id: '1', name: 'Usuario Demo', avatarUrl: 'https://placehold.co/40x40.png?text=UD', dataAihint: "profile avatar", xp: 75, level: 'Novato' }, // Current user
+  { id: '1', name: 'Mario', avatarUrl: 'https://placehold.co/40x40.png?text=M', dataAihint: "profile avatar", xp: 75, level: 'Novato' }, // Current user
   { id: '4', name: 'Sofia M.', avatarUrl: 'https://placehold.co/40x40.png?text=SM', dataAihint: "leaderboard avatar", xp: 55, level: 'Novato' },
   { id: '5', name: 'Carlos P.', avatarUrl: 'https://placehold.co/40x40.png?text=CP', dataAihint: "leaderboard avatar", xp: 30, level: 'Novato' },
 ].sort((a, b) => b.xp - a.xp);
@@ -32,7 +33,7 @@ const mockLeaderboard: LeaderboardUser[] = [
 const levelDetails = {
   Novato: { icon: Shield, color: 'text-success', nextLevelXP: 100, title: 'Novato Aspirante' },
   Intermedio: { icon: Star, color: 'text-info', nextLevelXP: 250, title: 'Intermedio Destacado' },
-  Experto: { icon: Zap, color: 'text-primary', nextLevelXP: Infinity, title: 'Experto Lingüista' }, // Or some high number
+  Experto: { icon: Zap, color: 'text-primary', nextLevelXP: Infinity, title: 'Experto Lingüista' }, 
 };
 
 export default function ProgressPage() {

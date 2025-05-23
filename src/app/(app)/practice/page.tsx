@@ -3,13 +3,13 @@
 
 import React from 'react';
 import { NewQuizComponent } from '@/components/game/NewQuizComponent'; 
-import type { Question } from '@/types'; // Question type now expects "question" for question text
+import type { Question } from '@/types'; 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from '@/hooks/use-toast';
 import { POINTS_PER_PRACTICE_CORRECT_ANSWER, POINTS_PER_PRACTICE_SECOND_ATTEMPT } from '@/lib/constants';
 import { UserProgressHeader } from '@/components/layout/UserProgressHeader';
 
-// mockApiPracticeQuestions (antes generalPracticeQuestions)
+// New general practice questions
 const mockApiPracticeQuestions: Question[] = [
   {
     question: "What do plants need to grow?",
@@ -217,43 +217,39 @@ const mockApiPracticeQuestions: Question[] = [
 const recommendedPracticeQuestions: Question[] = [
   {
     id: 'rec_ebullient',
-    question: 'Ebullient', // Changed 'text' to 'question'
-    type: 'vocabulary',
+    question: 'Ebullient', 
     options: [
-      { label: 'B', text: 'Cheerful and full of energy', explanation: '"Ebullient" means overflowing with fervor, enthusiasm, or excitement.' }, // Correct option listed first
-      { label: 'A', text: 'Quiet and reserved', explanation: 'This is not the meaning of Ebullient.' },
+      { label: 'A', text: 'Cheerful and full of energy', explanation: '"Ebullient" means overflowing with fervor, enthusiasm, or excitement.' }, 
+      { label: 'B', text: 'Quiet and reserved', explanation: 'This is not the meaning of Ebullient.' },
       { label: 'C', text: 'Sad and lonely', explanation: 'This is not the meaning of Ebullient.' }
     ],
-    translation: 'Entusiasta / Vivaz',
-    // Removed top-level explanation, it's now in the correct option
+    type: 'vocabulary', 
   },
   {
     id: 'rec_ephemeral',
-    question: 'Ephemeral', // Changed 'text' to 'question'
-    type: 'vocabulary',
+    question: 'Ephemeral', 
     options: [
-      { label: 'B', text: 'Lasting for a very short time', explanation: '"Ephemeral" describes something that is transient or quickly fading.' }, // Correct option listed first
-      { label: 'A', text: 'Long-lasting', explanation: 'This is not the meaning of Ephemeral.' },
+      { label: 'A', text: 'Lasting for a very short time', explanation: '"Ephemeral" describes something that is transient or quickly fading.' }, 
+      { label: 'B', text: 'Long-lasting', explanation: 'This is not the meaning of Ephemeral.' },
       { label: 'C', text: 'Very important', explanation: 'This is not the meaning of Ephemeral.' }
     ],
-    translation: 'Efímero',
+    type: 'vocabulary',
   },
   {
     id: 'rec_serendipity',
-    question: 'Serendipity', // Changed 'text' to 'question'
-    type: 'vocabulary',
+    question: 'Serendipity', 
     options: [
-      { label: 'B', text: 'The occurrence of events by chance in a happy or beneficial way', explanation: '"Serendipity" is finding valuable or agreeable things not sought for.' }, // Correct option listed first
-      { label: 'A', text: 'A planned discovery', explanation: 'This is not the meaning of Serendipity.' },
+      { label: 'A', text: 'The occurrence of events by chance in a happy or beneficial way', explanation: '"Serendipity" is finding valuable or agreeable things not sought for.' }, 
+      { label: 'B', text: 'A planned discovery', explanation: 'This is not the meaning of Serendipity.' },
       { label: 'C', text: 'A type of fruit', explanation: 'This is not the meaning of Serendipity.' }
     ],
-    translation: 'Serendipia',
+    type: 'vocabulary',
   }
 ];
 
 // Mock data for the header in practice page
 const practicePageMockHeaderData = {
-  userName: 'Laura',
+  userName: 'Mario',
   xp: 590, 
   displayLevel: "NIVEL 1",
   dailyLessonProgressPercentage: 45, 
@@ -266,12 +262,14 @@ export default function PracticePage() {
   const searchParams = useSearchParams();
   const source = searchParams.get('source');
 
-  let currentQuestions = mockApiPracticeQuestions; // Default to general questions
+  let currentQuestions = mockApiPracticeQuestions; 
   let quizTitle = "Práctica Diaria";
+  let quizInstanceId = "generalDailyPractice";
 
   if (source === 'recommendations') {
     currentQuestions = recommendedPracticeQuestions.length > 0 ? recommendedPracticeQuestions : mockApiPracticeQuestions;
     quizTitle = recommendedPracticeQuestions.length > 0 ? "Práctica de Palabras Recomendadas" : "Práctica Diaria (Recomendadas no disponibles)";
+    quizInstanceId = "recommendedPractice";
   }
 
   const handlePracticeComplete = (score: number, sessionData?: any[]) => { 
@@ -281,7 +279,6 @@ export default function PracticePage() {
       description: `Has ganado ${score} puntos de XP. ¡Seguí así!`,
       variant: "default", 
     });
-    // Optionally, you could send sessionData to an AI flow for analysis here if needed in the future
   };
 
   return (
@@ -300,9 +297,9 @@ export default function PracticePage() {
         pointsPerCorrectAnswer={POINTS_PER_PRACTICE_CORRECT_ANSWER}
         pointsPerSecondAttempt={POINTS_PER_PRACTICE_SECOND_ATTEMPT}
         onQuizComplete={handlePracticeComplete}
-        showExplanations={true} // NewQuizComponent now handles explanations internally
+        showExplanations={true} 
+        quizInstanceId={quizInstanceId}
       />
     </div>
   );
 }
-

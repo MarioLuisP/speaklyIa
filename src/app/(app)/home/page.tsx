@@ -7,20 +7,20 @@ import { Button } from '@/components/ui/button';
 import { getDailyVocabularySuggestions, DailyVocabularySuggestionsOutput } from '@/ai/flows/vocabulary-suggestions';
 import type { UserProfile } from '@/types';
 import { BookOpen, Flame, HelpCircle } from 'lucide-react';
-import { UserProgressHeader } from '@/components/layout/UserProgressHeader'; // Changed
+import { UserProgressHeader } from '@/components/layout/UserProgressHeader';
 
-// Mock user data - updated for Laura
+// Mock user data - updated for Mario
 const mockUser: UserProfile = {
   id: '1',
-  name: 'Laura', // Changed from Usuario Demo
-  email: 'laura@example.com',
-  avatarUrl: 'https://placehold.co/100x100.png?text=L',
+  name: 'Mario', 
+  email: 'mario@example.com',
+  avatarUrl: 'https://placehold.co/100x100.png?text=M',
   dataAihint: 'profile avatar',
-  level: 'Intermedio', // Level string for other parts of app
-  xp: 590, // Points from image
+  level: 'Intermedio', 
+  xp: 590, 
   wordsLearned: 120,
-  consecutiveDays: 3, // Streak from image
-  currentVocabularyLevel: 'Intermediate', // For AI suggestions
+  consecutiveDays: 3, 
+  currentVocabularyLevel: 'Intermediate', 
   learningGoals: 'General English improvement and travel vocabulary',
   dailyLessonTarget: 100, 
   dailyLessonProgress: 45, 
