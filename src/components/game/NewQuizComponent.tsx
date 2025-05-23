@@ -14,20 +14,18 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import type { Question as OriginalQuestion, ApiQuestionOption } from '@/types';
 import { NAV_PATHS } from "@/lib/constants";
 
-// Tipos internos para el componente después de procesar las preguntas originales
 interface ProcessedQuestionOption {
   id: string;
   text: string;
   explanation: string;
-  originalLabel: string; // 'A', 'B', 'C', etc.
+  originalLabel: string;
 }
 
 interface ProcessedQuestion {
   id: string;
-  questionText: string; // Texto de la pregunta
+  questionText: string;
   options: ProcessedQuestionOption[];
   correctOptionId: string;
-  type?: OriginalQuestion['type'];
 }
 
 export interface QuizSessionDataItem {
@@ -49,6 +47,7 @@ interface NewQuizComponentProps {
   onQuizComplete: (score: number, sessionData: QuizSessionDataItem[]) => void;
   showExplanations?: boolean;
   isLevelTest?: boolean;
+  quizInstanceId: string; // Para persistencia
 }
 
 const shuffleArray = <T,>(array: T[]): T[] => {
@@ -68,25 +67,27 @@ export function NewQuizComponent({
   onQuizComplete,
   showExplanations = true,
   isLevelTest = false,
+  quizInstanceId,
 }: NewQuizComponentProps) {
   const router = useRouter();
+  const storageKey = `quizProgress_${quizInstanceId}`;
+
   const [shuffledQuestions, setShuffledQuestions] = useState<ProcessedQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [quizCompleted, setQuizCompleted] = useState(false);
-
   const [currentQuestionAttempts, setCurrentQuestionAttempts] = useState(0);
   const [questionIsResolved, setQuestionIsResolved] = useState(false);
   const [firstAttemptIncorrectOptionId, setFirstAttemptIncorrectOptionId] = useState<string | null>(null);
-
   const [quizSessionData, setQuizSessionData] = useState<QuizSessionDataItem[]>([]);
   const [feedback, setFeedback] = useState<{type: 'correct' | 'incorrect' | 'info' | 'finalIncorrect', message: string} | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [translatedText, setTranslatedText] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const [translationError, setTranslationError] = useState<string | null>(null);
+  const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
+
 
   const resetQuestionState = useCallback(() => {
     setSelectedOptionId(null);
@@ -99,6 +100,7 @@ export function NewQuizComponent({
     setTranslationError(null);
   }, []);
 
+  // Procesar preguntas originales
   useEffect(() => {
     if (originalQuestions && originalQuestions.length > 0) {
       const processedQs: ProcessedQuestion[] = originalQuestions.map((origQ, questionIndex) => {
@@ -106,12 +108,10 @@ export function NewQuizComponent({
         let derivedCorrectOptionId = '';
 
         const optionsWithIdsAndOriginalLabel: ProcessedQuestionOption[] = origQ.options.map((apiOpt, optionIndex) => {
-          // Ensure apiOpt.label is a string or fallback to index
           const labelPart = typeof apiOpt.label === 'string' ? apiOpt.label : String(optionIndex);
           const currentOptionId = `${baseQuestionId}-opt${labelPart}`;
           
-          // The first option in the original JSON is always correct
-          if (optionIndex === 0) {
+          if (optionIndex === 0) { // La primera opción en el JSON original es la correcta
             derivedCorrectOptionId = currentOptionId;
           }
           return {
@@ -126,33 +126,103 @@ export function NewQuizComponent({
 
         return {
           id: baseQuestionId,
-          questionText: origQ.question, // CRITICAL FIX: Ensuring this assignment
+          questionText: origQ.question, // Campo del JSON para el texto de la pregunta
           options: shuffledProcessedOptions,
           correctOptionId: derivedCorrectOptionId,
-          // type: origQ.type, // Removed as 'type' is not in the new JSON structure
         };
       });
-      // console.log("Processed Questions:", JSON.stringify(processedQs, null, 2)); 
       setShuffledQuestions(processedQs);
-      
-      // Reset main quiz state as questions have changed
-      setCurrentQuestionIndex(0);
-      setScore(0);
-      setQuizCompleted(false);
-      setQuizSessionData([]);
-      // resetQuestionState will be called by the useEffect dependent on currentQuestionIndex changing to 0
+      // No llamar a resetQuizState aquí, la carga desde storage o el inicio limpio se manejan después
     } else {
-      setShuffledQuestions([]); // Ensure it's empty if no original questions
+      setShuffledQuestions([]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [originalQuestions]);
 
-
+  // Cargar estado desde sessionStorage
   useEffect(() => {
-    resetQuestionState();
-  }, [currentQuestionIndex, resetQuestionState]);
+    if (shuffledQuestions.length > 0 && !hasLoadedFromStorage) { // Solo cargar si hay preguntas y no se ha cargado aun
+      const savedStateRaw = sessionStorage.getItem(storageKey);
+      if (savedStateRaw) {
+        try {
+          const savedState = JSON.parse(savedStateRaw);
+          if (savedState && typeof savedState.currentQuestionIndex === 'number' && !savedState.quizCompleted) {
+            setCurrentQuestionIndex(savedState.currentQuestionIndex);
+            setSelectedOptionId(savedState.selectedOptionId || null);
+            setScore(savedState.score || 0);
+            setCurrentQuestionAttempts(savedState.currentQuestionAttempts || 0);
+            setQuestionIsResolved(savedState.questionIsResolved || false);
+            setFirstAttemptIncorrectOptionId(savedState.firstAttemptIncorrectOptionId || null);
+            setQuizSessionData(savedState.quizSessionData || []);
+            // No restaurar feedback, translatedText, etc. para evitar estados extraños al volver.
+          }
+        } catch (e) {
+          console.error("Error parsing saved quiz state:", e);
+          sessionStorage.removeItem(storageKey); // Limpiar estado corrupto
+        }
+      }
+      setHasLoadedFromStorage(true); // Marcar que se intentó cargar
+    }
+  }, [storageKey, shuffledQuestions, hasLoadedFromStorage]);
 
-  
+
+  // Guardar estado en sessionStorage
+  useEffect(() => {
+    // Solo guardar si las preguntas están listas y no se ha completado el quiz
+    if (shuffledQuestions.length > 0 && !quizCompleted && hasLoadedFromStorage) {
+      const stateToSave = {
+        currentQuestionIndex,
+        selectedOptionId,
+        score,
+        quizCompleted,
+        currentQuestionAttempts,
+        questionIsResolved,
+        firstAttemptIncorrectOptionId,
+        quizSessionData,
+      };
+      sessionStorage.setItem(storageKey, JSON.stringify(stateToSave));
+    }
+  }, [
+    storageKey,
+    currentQuestionIndex,
+    selectedOptionId,
+    score,
+    quizCompleted,
+    currentQuestionAttempts,
+    questionIsResolved,
+    firstAttemptIncorrectOptionId,
+    quizSessionData,
+    shuffledQuestions,
+    hasLoadedFromStorage
+  ]);
+
+  // Resetear el estado de la pregunta actual cuando el índice cambia
+  useEffect(() => {
+    if (shuffledQuestions.length > 0 && currentQuestionIndex < shuffledQuestions.length) {
+        // Solo reseteamos el estado visual/interactivo de la pregunta,
+        // el progreso general (índice, score) ya se cargó o está siendo manejado.
+        setSelectedOptionId(null); // Siempre empezar sin selección para nueva pregunta
+        setCurrentQuestionAttempts(0);
+        setQuestionIsResolved(false);
+        setFirstAttemptIncorrectOptionId(null);
+        setFeedback(null);
+        setTranslatedText(null);
+        setIsTranslating(false);
+        setTranslationError(null);
+    }
+  }, [currentQuestionIndex, shuffledQuestions.length]); // Depender solo del índice y si hay preguntas
+
+
+  const resetQuizStateAndStorage = useCallback(() => {
+    setCurrentQuestionIndex(0);
+    setScore(0);
+    setQuizCompleted(false);
+    setQuizSessionData([]);
+    resetQuestionState(); // Resetea los estados de la pregunta individual
+    sessionStorage.removeItem(storageKey);
+    setHasLoadedFromStorage(false); // Permitir recargar desde storage si se reinicia la misma instancia de quiz
+  }, [resetQuestionState, storageKey]);
+
+
   if (!originalQuestions || originalQuestions.length === 0) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
@@ -169,7 +239,7 @@ export function NewQuizComponent({
   
   const totalQuestions = shuffledQuestions.length;
 
-  if (totalQuestions === 0) { 
+  if (totalQuestions === 0 && originalQuestions.length > 0) { 
      return ( 
        <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
          <Card className="shadow-lg text-center w-full max-w-md">
@@ -180,11 +250,23 @@ export function NewQuizComponent({
     );
   }
   
+  if (totalQuestions === 0) {
+      return (
+           <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
+             <Card className="shadow-lg text-center w-full max-w-md">
+               <CardHeader><CardTitle>No hay preguntas</CardTitle></CardHeader>
+               <CardContent><p>No hay preguntas disponibles para este quiz.</p></CardContent>
+               <CardFooter className="justify-center">
+                 <Button onClick={() => router.push(NAV_PATHS.HOME)}>Volver a Inicio</Button>
+               </CardFooter>
+             </Card>
+           </div>
+      );
+  }
+
   const currentQuestion = shuffledQuestions[currentQuestionIndex];
 
   if (!currentQuestion) {
-    // This case implies an issue if currentQuestionIndex is out of bounds for a non-empty shuffledQuestions array
-    // or shuffledQuestions somehow became malformed after initial processing.
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
         <Card className="shadow-lg text-center w-full max-w-md">
@@ -287,10 +369,12 @@ export function NewQuizComponent({
     if (questionIsResolved) { 
       setIsSubmitting(true); 
       if (currentQuestionIndex < totalQuestions - 1) {
-        setCurrentQuestionIndex(currentQuestionIndex + 1);
+        setCurrentQuestionIndex(prevIndex => prevIndex + 1);
       } else {
         setQuizCompleted(true);
         onQuizComplete(score, quizSessionData);
+        sessionStorage.removeItem(storageKey); // Limpiar al completar
+        setHasLoadedFromStorage(false); // Permitir recarga si se vuelve al mismo quiz
       }
       setIsSubmitting(false); 
       return; 
@@ -336,17 +420,15 @@ export function NewQuizComponent({
         feedbackMessage = `Respuesta incorrecta. ${selectedOptionObject.explanation || ''} ¡Intentá de nuevo!`;
         
         setFeedback({type: feedbackType, message: feedbackMessage});
-        // Important: setSelectedOptionId(null) will be called after a timeout if we want to clear selection for 2nd attempt
-        // For now, let's not clear it to keep the incorrect selection visible until the user explicitly changes it or confirms.
         setTimeout(() => {
-          if (currentQuestionAttempts === 1 && !questionIsResolved) { // Check if still in 2nd attempt mode
-             setFeedback(null); // Clear temporary feedback
-             setSelectedOptionId(null); // Force user to re-select for 2nd chance
+          if (currentQuestionAttempts === 1 && !questionIsResolved && !quizCompleted) { 
+             setFeedback(null); 
+             setSelectedOptionId(null); 
           }
           setIsSubmitting(false); 
         }, 1500); 
-        return; // Early return, don't set questionIsResolved yet
-      } else { // This is the second (and final) incorrect attempt
+        return; 
+      } else { 
         setQuestionIsResolved(true);
         questionAttemptResolvedCurrentTurn = true;
         feedbackType = 'finalIncorrect';
@@ -372,27 +454,28 @@ export function NewQuizComponent({
   };
 
   const handleRepeatPractice = () => {
-    // Re-process originalQuestions to get a fresh shuffle
+    resetQuizStateAndStorage();
+    // Es necesario volver a procesar originalQuestions si queremos un nuevo shuffle
+    // pero para solo reiniciar el quiz actual, el reset de estados es suficiente
+    // y shuffledQuestions ya está en el estado.
+    // Para forzar re-shuffle, podríamos limpiar shuffledQuestions y depender del useEffect de originalQuestions.
+    // Por ahora, esto reinicia el progreso del quiz actual.
     if (originalQuestions && originalQuestions.length > 0) {
-      const reProcessedQs: ProcessedQuestion[] = originalQuestions.map((origQ, questionIndex) => {
-        const baseQuestionId = origQ.id || `q${questionIndex}`;
-        let derivedCorrectOptionId = '';
-        const optionsWithIds: ProcessedQuestionOption[] = origQ.options.map((apiOpt, optionIndex) => {
-          const labelPart = typeof apiOpt.label === 'string' ? apiOpt.label : String(optionIndex);
-          const currentOptionId = `${baseQuestionId}-opt${labelPart}`;
-          if (optionIndex === 0) { derivedCorrectOptionId = currentOptionId; }
-          return { id: currentOptionId, text: apiOpt.text, explanation: apiOpt.explanation, originalLabel: labelPart };
-        });
-        const shuffledProcessedOptions = shuffleArray(optionsWithIds);
-        return { id: baseQuestionId, questionText: origQ.question, options: shuffledProcessedOptions, correctOptionId: derivedCorrectOptionId };
-      });
-      setShuffledQuestions(reProcessedQs);
+        const processedQs: ProcessedQuestion[] = originalQuestions.map((origQ, questionIndex) => {
+            const baseQuestionId = origQ.id || `q${questionIndex}`;
+            let derivedCorrectOptionId = '';
+            const optionsWithIdsAndOriginalLabel: ProcessedQuestionOption[] = origQ.options.map((apiOpt, optionIndex) => {
+              const labelPart = typeof apiOpt.label === 'string' ? apiOpt.label : String(optionIndex);
+              const currentOptionId = `${baseQuestionId}-opt${labelPart}`;
+              if (optionIndex === 0) { derivedCorrectOptionId = currentOptionId; }
+              return { id: currentOptionId, text: apiOpt.text, explanation: apiOpt.explanation, originalLabel: labelPart };
+            });
+            const shuffledProcessedOptions = shuffleArray(optionsWithIdsAndOriginalLabel);
+            return { id: baseQuestionId, questionText: origQ.question, options: shuffledProcessedOptions, correctOptionId: derivedCorrectOptionId };
+          });
+        setShuffledQuestions(processedQs); // Esto refrescará las preguntas con un nuevo orden de opciones
     }
-    setCurrentQuestionIndex(0);
-    setScore(0);
-    setQuizCompleted(false);
-    setQuizSessionData([]);
-    // resetQuestionState() will be called by useEffect on currentQuestionIndex change
+     setHasLoadedFromStorage(true); // Asegurarse de que no intente cargar de nuevo desde storage inmediatamente
   };
 
   const getButtonText = () => {
@@ -508,10 +591,9 @@ export function NewQuizComponent({
             />
           </div>
 
-          <Card className="bg-card border border-border"> {/* Changed from bg-secondary/30 */}
+          <Card className="bg-card border border-border">
             <CardHeader>
               <CardTitle className="text-xl text-center">
-                {/* CRITICAL FIX: Accessing questionText */}
                 {currentQuestion.questionText || "[Texto de pregunta no disponible]"}
               </CardTitle>
             </CardHeader>
@@ -623,4 +705,3 @@ export function NewQuizComponent({
     </div>
   );
 }
-
