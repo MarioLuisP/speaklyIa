@@ -16,17 +16,17 @@ import { NAV_PATHS } from "@/lib/constants";
 
 // Tipos internos para el componente después de procesar las preguntas originales
 interface ProcessedQuestionOption {
-  id: string; // ID único generado, ej: "q0-opt0"
+  id: string; 
   text: string;
   explanation: string;
-  originalLabel: string; // 'A', 'B', 'C'
+  originalLabel: string; 
 }
 
 interface ProcessedQuestion {
-  id: string; // ID de la pregunta original o generado, ej: "q0"
-  questionText: string; // Texto de la pregunta para mostrar
-  options: ProcessedQuestionOption[]; // Opciones randomizadas
-  correctOptionId: string; // ID de la opción correcta dentro de ProcessedQuestionOption[]
+  id: string; 
+  questionText: string; 
+  options: ProcessedQuestionOption[]; 
+  correctOptionId: string; 
   type?: OriginalQuestion['type'];
 }
 
@@ -47,7 +47,7 @@ interface NewQuizComponentProps {
   pointsPerCorrectAnswer: number;
   pointsPerSecondAttempt?: number;
   onQuizComplete: (score: number, sessionData: QuizSessionDataItem[]) => void;
-  showExplanations?: boolean; // Esta prop podría eliminarse si las explicaciones siempre se muestran
+  showExplanations?: boolean; 
   isLevelTest?: boolean;
 }
 
@@ -66,7 +66,7 @@ export function NewQuizComponent({
   pointsPerCorrectAnswer,
   pointsPerSecondAttempt = Math.floor(pointsPerCorrectAnswer / 2),
   onQuizComplete,
-  showExplanations = true,
+  showExplanations = true, // No se usa activamente para cambiar comportamiento, las explicaciones siempre se usan en el feedback.
   isLevelTest = false,
 }: NewQuizComponentProps) {
   const router = useRouter();
@@ -105,10 +105,9 @@ export function NewQuizComponent({
         const questionId = origQ.id || `q${questionIndex}`;
         let correctOptId = '';
 
-        // Crear opciones procesadas con IDs únicos ANTES de mezclarlas
-        const processedOptions: ProcessedQuestionOption[] = origQ.options.map((apiOpt, optionIndex) => {
-          const currentOptionId = `${questionId}-opt${optionIndex}`; // ID basado en el índice original
-          if (optionIndex === 0) { // La primera opción en el JSON original es la correcta
+        const optionsWithIds: ProcessedQuestionOption[] = origQ.options.map((apiOpt, optionIndex) => {
+          const currentOptionId = `${questionId}-opt${apiOpt.label || optionIndex}`;
+          if (optionIndex === 0) { // As per spec, first option in JSON is correct
             correctOptId = currentOptionId;
           }
           return {
@@ -119,26 +118,27 @@ export function NewQuizComponent({
           };
         });
         
-        const shuffledProcessedOptions = shuffleArray(processedOptions);
+        const shuffledProcessedOptions = shuffleArray(optionsWithIds);
 
         return {
           id: questionId,
-          questionText: origQ.question, // Asignación directa del texto de la pregunta
+          questionText: origQ.question, // CRITICAL ASSIGNMENT
           options: shuffledProcessedOptions,
-          correctOptionId: correctOptId, // ID de la opción correcta (ya identificada)
+          correctOptionId: correctOptId,
           type: origQ.type,
         };
       });
+      console.log("Processed Questions:", JSON.stringify(processedQs, null, 2)); // DEBUG LOG
       setShuffledQuestions(processedQs);
       
-      // Resetear estados para el inicio de un nuevo quiz/set de preguntas
+      // Reset main quiz state as questions have changed
       setCurrentQuestionIndex(0);
       setScore(0);
       setQuizCompleted(false);
       setQuizSessionData([]);
-      // resetQuestionState se llamará debido al cambio de currentQuestionIndex a 0 (ver siguiente useEffect)
+      // resetQuestionState will be called by the useEffect dependent on currentQuestionIndex changing to 0
     } else {
-      setShuffledQuestions([]); // Si no hay preguntas originales, vaciar las procesadas
+      setShuffledQuestions([]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [originalQuestions]);
@@ -147,6 +147,8 @@ export function NewQuizComponent({
     resetQuestionState();
   }, [currentQuestionIndex, resetQuestionState]);
 
+  const currentQuestion = shuffledQuestions[currentQuestionIndex];
+  const totalQuestions = shuffledQuestions.length;
 
   if (!originalQuestions || originalQuestions.length === 0) {
     return (
@@ -162,7 +164,7 @@ export function NewQuizComponent({
     );
   }
   
-  if (shuffledQuestions.length === 0 && originalQuestions && originalQuestions.length > 0) {
+  if (totalQuestions > 0 && (!shuffledQuestions || shuffledQuestions.length === 0)) {
      return ( 
        <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
          <Card className="shadow-lg text-center w-full max-w-md">
@@ -172,30 +174,41 @@ export function NewQuizComponent({
        </div>
     );
   }
-
-  const totalQuestions = shuffledQuestions.length;
-  if (totalQuestions === 0 || currentQuestionIndex < 0 || currentQuestionIndex >= totalQuestions) {
+  
+  if (totalQuestions === 0 && originalQuestions && originalQuestions.length > 0) {
+    // This case implies processing might have failed or is async and not yet complete
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
         <Card className="shadow-lg text-center w-full max-w-md">
-          <CardHeader><CardTitle>Error</CardTitle></CardHeader>
-          <CardContent><p>No hay preguntas disponibles o el índice es inválido ({currentQuestionIndex}/{totalQuestions}). Por favor, intentá recargar.</p></CardContent>
-           <CardFooter className="justify-center">
-            <Button onClick={() => router.push(NAV_PATHS.HOME)}>Volver a Inicio</Button>
-          </CardFooter>
+          <CardHeader><CardTitle>Procesando Preguntas...</CardTitle></CardHeader>
+          <CardContent><Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" /></CardContent>
         </Card>
       </div>
-     );
+    );
   }
-  
-  const currentQuestion = shuffledQuestions[currentQuestionIndex];
+
 
   if (!currentQuestion) {
+    if (totalQuestions > 0 && currentQuestionIndex >= totalQuestions && !quizCompleted) {
+      // This case should ideally be caught by quizCompleted logic, but as a fallback
+      return (
+        <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
+          <Card className="shadow-lg text-center w-full max-w-md">
+            <CardHeader><CardTitle>Error</CardTitle></CardHeader>
+            <CardContent><p>Índice de pregunta fuera de rango. Intentando finalizar quiz...</p></CardContent>
+             <CardFooter className="justify-center">
+              <Button onClick={() => { setQuizCompleted(true); onQuizComplete(score, quizSessionData); }}>Ver Resultados</Button>
+            </CardFooter>
+          </Card>
+        </div>
+      );
+    }
+    // If not completed and no currentQuestion, it's an issue with question loading or state.
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
         <Card className="shadow-lg text-center w-full max-w-md">
-          <CardHeader><CardTitle>Error</CardTitle></CardHeader>
-          <CardContent><p>No se pudo cargar la pregunta actual ({currentQuestionIndex + 1}). Por favor, intentá recargar.</p></CardContent>
+          <CardHeader><CardTitle>Error Cargando Pregunta</CardTitle></CardHeader>
+          <CardContent><p>No se pudo cargar la pregunta actual ({currentQuestionIndex + 1} de {totalQuestions}). Por favor, intentá recargar.</p></CardContent>
            <CardFooter className="justify-center">
             <Button onClick={() => router.push(NAV_PATHS.HOME)}>Volver a Inicio</Button>
           </CardFooter>
@@ -289,16 +302,15 @@ export function NewQuizComponent({
   const handleSubmitOrNext = () => {
     if (quizCompleted || isSubmitting) return; 
     
-    if (questionIsResolved) { // User is clicking "Siguiente Pregunta" or "Ver Resultados"
-      setIsSubmitting(true); // Prevent multiple clicks while transitioning
+    if (questionIsResolved) { 
+      setIsSubmitting(true); 
       if (currentQuestionIndex < totalQuestions - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
-        // resetQuestionState() is called by useEffect watching currentQuestionIndex
       } else {
         setQuizCompleted(true);
         onQuizComplete(score, quizSessionData);
       }
-      setIsSubmitting(false); // Re-enable for next screen or if something goes wrong
+      setIsSubmitting(false); 
       return; 
     }
 
@@ -343,14 +355,14 @@ export function NewQuizComponent({
         
         setFeedback({type: feedbackType, message: feedbackMessage});
         setTimeout(() => {
-          if (currentQuestionAttempts === 1 && !questionIsResolved) { // Check if still in 2nd attempt mode
-             setFeedback(null); // Clear temporary feedback
-             setSelectedOptionId(null); // Clear selection to force new choice
+          if (currentQuestionAttempts === 1 && !questionIsResolved) { 
+             setFeedback(null); 
+             setSelectedOptionId(null);
           }
           setIsSubmitting(false); 
         }, 1500); 
         return; 
-      } else { // Second attempt and still incorrect
+      } else { 
         setQuestionIsResolved(true);
         questionAttemptResolved = true;
         feedbackType = 'finalIncorrect';
@@ -372,17 +384,16 @@ export function NewQuizComponent({
       ]);
     }
     
-    setIsSubmitting(false); // Re-enable button after processing, unless we returned early
+    setIsSubmitting(false); 
   };
 
   const handleRepeatPractice = () => {
-    // Re-shuffle the original questions to get a new order for the same set
     if (originalQuestions && originalQuestions.length > 0) {
       const reProcessedQs: ProcessedQuestion[] = originalQuestions.map((origQ, questionIndex) => {
         const questionId = origQ.id || `q${questionIndex}`;
         let correctOptId = '';
         const processedOptions: ProcessedQuestionOption[] = origQ.options.map((apiOpt, optionIndex) => {
-          const currentOptionId = `${questionId}-opt${optionIndex}`;
+          const currentOptionId = `${questionId}-opt${apiOpt.label || optionIndex}`;
           if (optionIndex === 0) { correctOptId = currentOptionId; }
           return { id: currentOptionId, text: apiOpt.text, explanation: apiOpt.explanation, originalLabel: apiOpt.label };
         });
@@ -410,7 +421,6 @@ export function NewQuizComponent({
     }
     return "Verificar Respuesta"; 
   };
-
 
   if (quizCompleted) {
     return (
@@ -626,3 +636,4 @@ export function NewQuizComponent({
     </div>
   );
 }
+
