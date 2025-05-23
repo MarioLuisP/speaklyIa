@@ -16,17 +16,17 @@ import { NAV_PATHS } from "@/lib/constants";
 
 // Tipos internos para el componente después de procesar las preguntas originales
 interface ProcessedQuestionOption {
-  id: string; 
+  id: string;
   text: string;
   explanation: string;
-  originalLabel: string; 
+  originalLabel: string; // 'A', 'B', 'C', etc.
 }
 
 interface ProcessedQuestion {
-  id: string; 
-  questionText: string; 
-  options: ProcessedQuestionOption[]; 
-  correctOptionId: string; 
+  id: string;
+  questionText: string; // Texto de la pregunta
+  options: ProcessedQuestionOption[];
+  correctOptionId: string;
   type?: OriginalQuestion['type'];
 }
 
@@ -47,7 +47,7 @@ interface NewQuizComponentProps {
   pointsPerCorrectAnswer: number;
   pointsPerSecondAttempt?: number;
   onQuizComplete: (score: number, sessionData: QuizSessionDataItem[]) => void;
-  showExplanations?: boolean; 
+  showExplanations?: boolean;
   isLevelTest?: boolean;
 }
 
@@ -66,7 +66,7 @@ export function NewQuizComponent({
   pointsPerCorrectAnswer,
   pointsPerSecondAttempt = Math.floor(pointsPerCorrectAnswer / 2),
   onQuizComplete,
-  showExplanations = true, // No se usa activamente para cambiar comportamiento, las explicaciones siempre se usan en el feedback.
+  showExplanations = true,
   isLevelTest = false,
 }: NewQuizComponentProps) {
   const router = useRouter();
@@ -102,33 +102,37 @@ export function NewQuizComponent({
   useEffect(() => {
     if (originalQuestions && originalQuestions.length > 0) {
       const processedQs: ProcessedQuestion[] = originalQuestions.map((origQ, questionIndex) => {
-        const questionId = origQ.id || `q${questionIndex}`;
-        let correctOptId = '';
+        const baseQuestionId = origQ.id || `q${questionIndex}`;
+        let derivedCorrectOptionId = '';
 
-        const optionsWithIds: ProcessedQuestionOption[] = origQ.options.map((apiOpt, optionIndex) => {
-          const currentOptionId = `${questionId}-opt${apiOpt.label || optionIndex}`;
-          if (optionIndex === 0) { // As per spec, first option in JSON is correct
-            correctOptId = currentOptionId;
+        const optionsWithIdsAndOriginalLabel: ProcessedQuestionOption[] = origQ.options.map((apiOpt, optionIndex) => {
+          // Ensure apiOpt.label is a string or fallback to index
+          const labelPart = typeof apiOpt.label === 'string' ? apiOpt.label : String(optionIndex);
+          const currentOptionId = `${baseQuestionId}-opt${labelPart}`;
+          
+          // The first option in the original JSON is always correct
+          if (optionIndex === 0) {
+            derivedCorrectOptionId = currentOptionId;
           }
           return {
             id: currentOptionId,
             text: apiOpt.text,
             explanation: apiOpt.explanation,
-            originalLabel: apiOpt.label,
+            originalLabel: labelPart,
           };
         });
         
-        const shuffledProcessedOptions = shuffleArray(optionsWithIds);
+        const shuffledProcessedOptions = shuffleArray(optionsWithIdsAndOriginalLabel);
 
         return {
-          id: questionId,
-          questionText: origQ.question, // CRITICAL ASSIGNMENT
+          id: baseQuestionId,
+          questionText: origQ.question, // CRITICAL FIX: Ensuring this assignment
           options: shuffledProcessedOptions,
-          correctOptionId: correctOptId,
-          type: origQ.type,
+          correctOptionId: derivedCorrectOptionId,
+          // type: origQ.type, // Removed as 'type' is not in the new JSON structure
         };
       });
-      console.log("Processed Questions:", JSON.stringify(processedQs, null, 2)); // DEBUG LOG
+      // console.log("Processed Questions:", JSON.stringify(processedQs, null, 2)); 
       setShuffledQuestions(processedQs);
       
       // Reset main quiz state as questions have changed
@@ -138,18 +142,17 @@ export function NewQuizComponent({
       setQuizSessionData([]);
       // resetQuestionState will be called by the useEffect dependent on currentQuestionIndex changing to 0
     } else {
-      setShuffledQuestions([]);
+      setShuffledQuestions([]); // Ensure it's empty if no original questions
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [originalQuestions]);
+
 
   useEffect(() => {
     resetQuestionState();
   }, [currentQuestionIndex, resetQuestionState]);
 
-  const currentQuestion = shuffledQuestions[currentQuestionIndex];
-  const totalQuestions = shuffledQuestions.length;
-
+  
   if (!originalQuestions || originalQuestions.length === 0) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
@@ -164,7 +167,9 @@ export function NewQuizComponent({
     );
   }
   
-  if (totalQuestions > 0 && (!shuffledQuestions || shuffledQuestions.length === 0)) {
+  const totalQuestions = shuffledQuestions.length;
+
+  if (totalQuestions === 0) { 
      return ( 
        <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
          <Card className="shadow-lg text-center w-full max-w-md">
@@ -175,35 +180,11 @@ export function NewQuizComponent({
     );
   }
   
-  if (totalQuestions === 0 && originalQuestions && originalQuestions.length > 0) {
-    // This case implies processing might have failed or is async and not yet complete
-    return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
-        <Card className="shadow-lg text-center w-full max-w-md">
-          <CardHeader><CardTitle>Procesando Preguntas...</CardTitle></CardHeader>
-          <CardContent><Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" /></CardContent>
-        </Card>
-      </div>
-    );
-  }
-
+  const currentQuestion = shuffledQuestions[currentQuestionIndex];
 
   if (!currentQuestion) {
-    if (totalQuestions > 0 && currentQuestionIndex >= totalQuestions && !quizCompleted) {
-      // This case should ideally be caught by quizCompleted logic, but as a fallback
-      return (
-        <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
-          <Card className="shadow-lg text-center w-full max-w-md">
-            <CardHeader><CardTitle>Error</CardTitle></CardHeader>
-            <CardContent><p>Índice de pregunta fuera de rango. Intentando finalizar quiz...</p></CardContent>
-             <CardFooter className="justify-center">
-              <Button onClick={() => { setQuizCompleted(true); onQuizComplete(score, quizSessionData); }}>Ver Resultados</Button>
-            </CardFooter>
-          </Card>
-        </div>
-      );
-    }
-    // If not completed and no currentQuestion, it's an issue with question loading or state.
+    // This case implies an issue if currentQuestionIndex is out of bounds for a non-empty shuffledQuestions array
+    // or shuffledQuestions somehow became malformed after initial processing.
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-12rem)] p-4">
         <Card className="shadow-lg text-center w-full max-w-md">
@@ -216,6 +197,7 @@ export function NewQuizComponent({
       </div>
      );
   }
+
 
   const handleTextToSpeech = () => {
     if (!currentQuestion?.questionText) {
@@ -257,8 +239,8 @@ export function NewQuizComponent({
         try {
           const errorData = await response.json();
           if (errorData?.responseDetails) { errorMessage += `: ${errorData.responseDetails}`; }
-          else if (errorData?.match && typeof errorData.match === 'number' && errorData.match < 0.5 && errorData.responseData?.translatedText?.includes("NO QUERY SPECIFIED")) {
-            errorMessage += ": No se especificó consulta o hubo un problema con la API.";
+          else if (errorData?.responseData?.translatedText?.includes("NO QUERY SPECIFIED") || (errorData?.match && typeof errorData.match === 'number' && errorData.match < 0.5)) {
+            errorMessage += ": No se especificó consulta o hubo un problema con la API de MyMemory.";
           } else if (errorData?.message) { errorMessage += `: ${errorData.message}`; }
           else if (response.statusText) { errorMessage += `: ${response.statusText}`; }
           else { errorMessage += ": Error desconocido del servidor"; }
@@ -273,7 +255,7 @@ export function NewQuizComponent({
       if (data.responseData && data.responseData.translatedText && !data.responseData.translatedText.includes("NO QUERY SPECIFIED")) {
         setTranslatedText(data.responseData.translatedText);
       } else if (data.responseDetails || data.responseData?.translatedText?.includes("NO QUERY SPECIFIED")) {
-        throw new Error(`Error de traducción: ${data.responseDetails || "Respuesta no válida de la API."}`);
+        throw new Error(`Error de traducción: ${data.responseDetails || "Respuesta no válida de la API de MyMemory."}`);
       } else {
         throw new Error("Respuesta de traducción no válida o vacía.");
       }
@@ -330,7 +312,7 @@ export function NewQuizComponent({
     
     let feedbackMessage = "";
     let feedbackType: 'correct' | 'incorrect' | 'finalIncorrect' = 'incorrect';
-    let questionAttemptResolved = false;
+    let questionAttemptResolvedCurrentTurn = false;
 
     if (!selectedOptionObject || !correctOptionObject) {
         console.error("Error: Opción seleccionada o correcta no encontrada.", {selectedOptionId, correctOptionId: currentQuestion.correctOptionId, options: currentQuestion.options});
@@ -343,7 +325,7 @@ export function NewQuizComponent({
       pointsEarnedThisTurn = attemptsForThisTurn === 1 ? pointsPerCorrectAnswer : (pointsPerSecondAttempt || 0);
       setScore(prevScore => prevScore + pointsEarnedThisTurn);
       setQuestionIsResolved(true);
-      questionAttemptResolved = true;
+      questionAttemptResolvedCurrentTurn = true;
       feedbackType = 'correct';
       feedbackMessage = `¡Correcto! ${selectedOptionObject.explanation || ''} Ganaste +${pointsEarnedThisTurn} puntos.`;
     } else { 
@@ -354,17 +336,19 @@ export function NewQuizComponent({
         feedbackMessage = `Respuesta incorrecta. ${selectedOptionObject.explanation || ''} ¡Intentá de nuevo!`;
         
         setFeedback({type: feedbackType, message: feedbackMessage});
+        // Important: setSelectedOptionId(null) will be called after a timeout if we want to clear selection for 2nd attempt
+        // For now, let's not clear it to keep the incorrect selection visible until the user explicitly changes it or confirms.
         setTimeout(() => {
-          if (currentQuestionAttempts === 1 && !questionIsResolved) { 
-             setFeedback(null); 
-             setSelectedOptionId(null);
+          if (currentQuestionAttempts === 1 && !questionIsResolved) { // Check if still in 2nd attempt mode
+             setFeedback(null); // Clear temporary feedback
+             setSelectedOptionId(null); // Force user to re-select for 2nd chance
           }
           setIsSubmitting(false); 
         }, 1500); 
-        return; 
-      } else { 
+        return; // Early return, don't set questionIsResolved yet
+      } else { // This is the second (and final) incorrect attempt
         setQuestionIsResolved(true);
-        questionAttemptResolved = true;
+        questionAttemptResolvedCurrentTurn = true;
         feedbackType = 'finalIncorrect';
         feedbackMessage = `Incorrecto. ${selectedOptionObject.explanation || ''} <br/>La respuesta correcta era "${correctOptionObject.text}". <br/>Explicación: ${correctOptionObject.explanation || ''}`;
       }
@@ -372,7 +356,7 @@ export function NewQuizComponent({
     
     setFeedback({type: feedbackType, message: feedbackMessage});
     
-    if (questionAttemptResolved) {
+    if (questionAttemptResolvedCurrentTurn) {
       setQuizSessionData(prevData => [
         ...prevData,
         {
@@ -388,17 +372,19 @@ export function NewQuizComponent({
   };
 
   const handleRepeatPractice = () => {
+    // Re-process originalQuestions to get a fresh shuffle
     if (originalQuestions && originalQuestions.length > 0) {
       const reProcessedQs: ProcessedQuestion[] = originalQuestions.map((origQ, questionIndex) => {
-        const questionId = origQ.id || `q${questionIndex}`;
-        let correctOptId = '';
-        const processedOptions: ProcessedQuestionOption[] = origQ.options.map((apiOpt, optionIndex) => {
-          const currentOptionId = `${questionId}-opt${apiOpt.label || optionIndex}`;
-          if (optionIndex === 0) { correctOptId = currentOptionId; }
-          return { id: currentOptionId, text: apiOpt.text, explanation: apiOpt.explanation, originalLabel: apiOpt.label };
+        const baseQuestionId = origQ.id || `q${questionIndex}`;
+        let derivedCorrectOptionId = '';
+        const optionsWithIds: ProcessedQuestionOption[] = origQ.options.map((apiOpt, optionIndex) => {
+          const labelPart = typeof apiOpt.label === 'string' ? apiOpt.label : String(optionIndex);
+          const currentOptionId = `${baseQuestionId}-opt${labelPart}`;
+          if (optionIndex === 0) { derivedCorrectOptionId = currentOptionId; }
+          return { id: currentOptionId, text: apiOpt.text, explanation: apiOpt.explanation, originalLabel: labelPart };
         });
-        const shuffledProcessedOptions = shuffleArray(processedOptions);
-        return { id: questionId, questionText: origQ.question, options: shuffledProcessedOptions, correctOptionId: correctOptId, type: origQ.type };
+        const shuffledProcessedOptions = shuffleArray(optionsWithIds);
+        return { id: baseQuestionId, questionText: origQ.question, options: shuffledProcessedOptions, correctOptionId: derivedCorrectOptionId };
       });
       setShuffledQuestions(reProcessedQs);
     }
@@ -406,7 +392,7 @@ export function NewQuizComponent({
     setScore(0);
     setQuizCompleted(false);
     setQuizSessionData([]);
-    resetQuestionState(); 
+    // resetQuestionState() will be called by useEffect on currentQuestionIndex change
   };
 
   const getButtonText = () => {
@@ -522,9 +508,10 @@ export function NewQuizComponent({
             />
           </div>
 
-          <Card className="bg-card border border-border">
+          <Card className="bg-card border border-border"> {/* Changed from bg-secondary/30 */}
             <CardHeader>
               <CardTitle className="text-xl text-center">
+                {/* CRITICAL FIX: Accessing questionText */}
                 {currentQuestion.questionText || "[Texto de pregunta no disponible]"}
               </CardTitle>
             </CardHeader>
