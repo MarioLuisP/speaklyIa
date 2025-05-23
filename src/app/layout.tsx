@@ -13,6 +13,9 @@ const poppins = Poppins({ // Instantiated Poppins
 export const metadata: Metadata = {
   title: 'SpeaklyAI', // Changed from VocabMaster AI
   description: 'Mejorá tu vocabulario día a día con IA', // Kept Spanish description
+  icons: {
+    icon: '/favicon.ico', // Standard path for favicon in the public directory
+  },
 };
 
 export default function RootLayout({
