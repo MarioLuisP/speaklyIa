@@ -9,9 +9,9 @@ interface UserProgressHeaderProps {
   userName: string;
   score: number; // Changed from xp
   userLevel: UserProfile["userLevel"]; // Changed from displayLevel
-  levelUpMessage: string; 
+  levelUpMessage: string;
   dailyLessonProgressPercentage: number;
-  dailyLessonProgressLabel?: string; 
+  dailyLessonProgressLabel?: string;
 }
 
 export function UserProgressHeader({
@@ -29,17 +29,17 @@ export function UserProgressHeader({
       <div className="flex justify-between items-center">
         {/* Left: Level and Score */}
         <div>
-          <p className="text-xs text-muted-foreground uppercase">{userLevel}</p> 
+          <p className="text-xs text-muted-foreground uppercase">{userLevel}</p>
           <p className="text-xs text-muted-foreground mt-1">PUNTOS</p>
           <p className="text-3xl font-bold text-primary">{score}</p>
         </div>
-        
+
         {/* Center: Welcome messages */}
         <div className="text-center mx-2 flex-grow">
-          <h1 className="text-2xl font-semibold">Bienvenido {userName}!</h1>
+          <h1 className="text-2xl font-semibold">¡Seguí así {userName}!</h1>
           <p className="text-sm text-muted-foreground">{levelUpMessage}</p>
         </div>
-        
+
         {/* Right: Logo */}
         <Logo size="sm" />
       </div>
