@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { getDailyVocabularySuggestions, DailyVocabularySuggestionsOutput } from '@/ai/flows/vocabulary-suggestions';
 import type { UserProfile } from '@/types';
-import { BookOpen, Flame, HelpCircle } from 'lucide-react';
+import { BookOpen, HelpCircle } from 'lucide-react'; // Removed Flame
 import { UserProgressHeader } from '@/components/layout/UserProgressHeader';
 import { differenceInDays, differenceInHours, formatDistanceToNowStrict } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -15,8 +15,8 @@ import { es } from 'date-fns/locale';
 // Simulación de datos que vendrían del backend para el usuario "Mario"
 const mockBackendData: Omit<UserProfile, 'id' | 'email' | 'avatarUrl' | 'wordsLearned' | 'consecutiveDays' | 'currentVocabularyLevel' | 'learningGoals' | 'dataAihint' | 'dailyLessonTarget' | 'dailyLessonProgress'> & {name: string} = {
   name: 'Mario',
-  score: 650, // XP ahora es score
-  userLevel: 'Intermedio', // Nivel ahora es userLevel
+  score: 650,
+  userLevel: 'Intermedio',
   tematic: 'Viajes',
   lastLogin: new Date(Date.now() - (1000 * 60 * 60 * 27)).toISOString(), // Ejemplo: hace 27 horas
 };
@@ -28,18 +28,14 @@ export default function HomePage() {
   const [loadingRecs, setLoadingRecs] = useState(true);
   const [timeSinceLastLogin, setTimeSinceLastLogin] = useState('');
 
-  // Simulación de carga de datos del backend y del usuario de Clerk
   useEffect(() => {
-    // En una app real, aquí harías un fetch a tu backend para obtener los datos del usuario.
-    // Y obtendrías el nombre de Clerk con useUser().
     setUserData(mockBackendData);
 
     async function fetchRecommendations() {
       try {
         setLoadingRecs(true);
-        // Asumimos que 'currentVocabularyLevel' y 'learningGoals' vendrían de userData o se definirían de otra forma
         const result: DailyVocabularySuggestionsOutput = await getDailyVocabularySuggestions({
-          userLevel: 'Intermediate', // Placeholder
+          userLevel: mockBackendData.userLevel || 'Intermediate', 
           learningGoals: 'Travel vocabulary', // Placeholder
           numberOfSuggestions: 5,
         });
@@ -74,28 +70,27 @@ export default function HomePage() {
   if (!userData) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <span className="loading loading-spinner loading-lg"></span>
+        <span className="loading loading-spinner loading-lg"></span> {/* Using DaisyUI spinner */}
       </div>
     );
   }
 
-  // Datos para el UserProgressHeader y otros UI que antes venían de mockUser
   const displayUserLevel = userData.userLevel || 'Novato';
   const displayScore = userData.score || 0;
-  const dailyProgressPercentage = 45; // Placeholder, esto vendría de otra fuente
-  const levelUpMessage = "Sólo 3 entrenamientos más y subís de nivel."; // Placeholder
-  const dailyLessonProgressLabel = `${dailyProgressPercentage}% para completar tu lección del día`; // Placeholder
+  const dailyProgressPercentage = 45; // Placeholder
+  const levelUpMsg = "Sólo 3 entrenamientos más y subís de nivel."; // Placeholder
+  const dailyLessonProgLabel = `${dailyProgressPercentage}% para completar tu lección del día`; // Placeholder
   const wordsLearned = 120; // Placeholder
 
   return (
     <div className="container mx-auto p-4 space-y-6">
       <UserProgressHeader
-        userName={userData.name}
-        score={displayScore} // Cambiado de xp a score
-        userLevel={displayUserLevel} // Cambiado de displayLevel a userLevel
-        levelUpMessage={levelUpMessage}
+        mainMessage={`Bienvenido ${userData.name}!`}
+        score={displayScore}
+        userLevel={displayUserLevel}
+        levelUpMessage={levelUpMsg}
         dailyLessonProgressPercentage={dailyProgressPercentage}
-        dailyLessonProgressLabel={dailyLessonProgressLabel}
+        dailyLessonProgressLabel={dailyLessonProgLabel}
       />
       
       <div className="bg-base-200 p-3 rounded-lg shadow flex flex-col items-center justify-center text-sm text-base-content text-center">

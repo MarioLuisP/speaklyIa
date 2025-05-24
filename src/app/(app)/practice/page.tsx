@@ -4,7 +4,7 @@
 import React from 'react';
 import { NewQuizComponent } from '@/components/game/NewQuizComponent'; 
 import type { Question } from '@/types'; 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation'; // Removed useRouter as it's not used
 import { toast } from '@/hooks/use-toast';
 import { POINTS_PER_PRACTICE_CORRECT_ANSWER, POINTS_PER_PRACTICE_SECOND_ATTEMPT } from '@/lib/constants';
 import { UserProgressHeader } from '@/components/layout/UserProgressHeader';
@@ -217,7 +217,7 @@ const mockApiPracticeQuestions: Question[] = [
 const recommendedPracticeQuestions: Question[] = [
   {
     id: 'rec_ebullient',
-    question: 'Ebullient', 
+    question: 'Ebullient', // Changed from text
     options: [
       { label: 'A', text: 'Cheerful and full of energy', explanation: '"Ebullient" means overflowing with fervor, enthusiasm, or excitement.' }, 
       { label: 'B', text: 'Quiet and reserved', explanation: 'This is not the meaning of Ebullient.' },
@@ -227,7 +227,7 @@ const recommendedPracticeQuestions: Question[] = [
   },
   {
     id: 'rec_ephemeral',
-    question: 'Ephemeral', 
+    question: 'Ephemeral', // Changed from text
     options: [
       { label: 'A', text: 'Lasting for a very short time', explanation: '"Ephemeral" describes something that is transient or quickly fading.' }, 
       { label: 'B', text: 'Long-lasting', explanation: 'This is not the meaning of Ephemeral.' },
@@ -237,7 +237,7 @@ const recommendedPracticeQuestions: Question[] = [
   },
   {
     id: 'rec_serendipity',
-    question: 'Serendipity', 
+    question: 'Serendipity', // Changed from text
     options: [
       { label: 'A', text: 'The occurrence of events by chance in a happy or beneficial way', explanation: '"Serendipity" is finding valuable or agreeable things not sought for.' }, 
       { label: 'B', text: 'A planned discovery', explanation: 'This is not the meaning of Serendipity.' },
@@ -250,15 +250,14 @@ const recommendedPracticeQuestions: Question[] = [
 // Mock data for the header in practice page
 const practicePageMockHeaderData = {
   userName: 'Mario',
-  xp: 590, 
-  displayLevel: "NIVEL 1",
+  score: 590, 
+  userLevel: "Novato", // Corrected to match UserProfile type
   dailyLessonProgressPercentage: 45, 
   levelUpMessage: "¡Concentrate y sumá más puntos en tu práctica!",
   dailyLessonProgressLabel: "45% para completar tu lección del día",
 };
 
 export default function PracticePage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const source = searchParams.get('source');
 
@@ -284,9 +283,9 @@ export default function PracticePage() {
   return (
     <div className="container mx-auto p-4 space-y-0"> 
       <UserProgressHeader
-        userName={practicePageMockHeaderData.userName}
-        xp={practicePageMockHeaderData.xp}
-        displayLevel={practicePageMockHeaderData.displayLevel}
+        mainMessage={`¡Seguí así ${practicePageMockHeaderData.userName}!`}
+        score={practicePageMockHeaderData.score}
+        userLevel={practicePageMockHeaderData.userLevel as "Novato" | "Intermedio" | "Experto"}
         levelUpMessage={practicePageMockHeaderData.levelUpMessage}
         dailyLessonProgressPercentage={practicePageMockHeaderData.dailyLessonProgressPercentage}
         dailyLessonProgressLabel={practicePageMockHeaderData.dailyLessonProgressLabel}

@@ -6,16 +6,16 @@ import { Progress } from '@/components/ui/progress';
 import type { UserProfile } from '@/types';
 
 interface UserProgressHeaderProps {
-  userName: string;
-  score: number; // Changed from xp
-  userLevel: UserProfile["userLevel"]; // Changed from displayLevel
-  levelUpMessage: string;
+  mainMessage: string; // Será "Bienvenido {userName}!" o "¡Seguí así {userName}!"
+  score: number;
+  userLevel: UserProfile["userLevel"];
+  levelUpMessage: string; // Mensaje secundario
   dailyLessonProgressPercentage: number;
   dailyLessonProgressLabel?: string;
 }
 
 export function UserProgressHeader({
-  userName,
+  mainMessage,
   score,
   userLevel,
   levelUpMessage,
@@ -36,7 +36,7 @@ export function UserProgressHeader({
 
         {/* Center: Welcome messages */}
         <div className="text-center mx-2 flex-grow">
-          <h1 className="text-2xl font-semibold">¡Seguí así {userName}!</h1>
+          <h1 className="text-2xl font-semibold">{mainMessage}</h1>
           <p className="text-sm text-muted-foreground">{levelUpMessage}</p>
         </div>
 
