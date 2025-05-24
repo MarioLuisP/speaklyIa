@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { getDailyVocabularySuggestions, DailyVocabularySuggestionsOutput } from '@/ai/flows/vocabulary-suggestions';
 import type { UserProfile } from '@/types';
-import { BookOpen, HelpCircle } from 'lucide-react'; // Removed Flame
+import { BookOpen, HelpCircle, Cog } from 'lucide-react';
 import { UserProgressHeader } from '@/components/layout/UserProgressHeader';
 import { differenceInDays, differenceInHours, formatDistanceToNowStrict } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -29,8 +29,10 @@ export default function HomePage() {
   const [timeSinceLastLogin, setTimeSinceLastLogin] = useState('');
 
   useEffect(() => {
+    // Simulación de carga de datos del usuario (en un futuro vendría del backend)
     setUserData(mockBackendData);
 
+    // Carga de recomendaciones
     async function fetchRecommendations() {
       try {
         setLoadingRecs(true);
@@ -70,7 +72,7 @@ export default function HomePage() {
   if (!userData) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <span className="loading loading-spinner loading-lg"></span> {/* Using DaisyUI spinner */}
+        <span className="loading loading-spinner loading-lg"></span>
       </div>
     );
   }
@@ -98,16 +100,22 @@ export default function HomePage() {
         {timeSinceLastLogin && <span className="mt-1">{timeSinceLastLogin}</span>}
       </div>
 
-      <div className="text-center">
+      <div className="text-center space-y-3 md:space-y-0 md:space-x-3">
         <Link href="/practice" legacyBehavior>
-          <Button className="btn btn-primary btn-lg">
+          <Button className="btn btn-primary btn-lg w-full md:w-auto">
             <BookOpen size={20} className="mr-2" />
             {wordsLearned > 0 ? 'Continuar Práctica' : 'Hacer mi Primera Práctica'}
           </Button>
         </Link>
+        <Link href="/practice-settings" legacyBehavior>
+          <Button className="btn btn-secondary btn-lg w-full md:w-auto">
+            <Cog size={20} className="mr-2" />
+            Configurar Práctica
+          </Button>
+        </Link>
         {wordsLearned === 0 && (
            <p className="mt-2 text-sm text-base-content/70">
-            <Link href="/level-test" className="link link-secondary">
+            <Link href="/level-test" className="link link-accent">
               O empezá con una prueba de nivel
             </Link>
           </p>
@@ -174,3 +182,4 @@ export default function HomePage() {
     </div>
   );
 }
+
