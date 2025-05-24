@@ -8,36 +8,39 @@ import { getDailyVocabularySuggestions, DailyVocabularySuggestionsOutput } from 
 import type { UserProfile } from '@/types';
 import { BookOpen, Flame, HelpCircle } from 'lucide-react';
 import { UserProgressHeader } from '@/components/layout/UserProgressHeader';
+import { differenceInDays, differenceInHours, formatDistanceToNowStrict } from 'date-fns';
+import { es } from 'date-fns/locale';
 
-// Mock user data - updated for Mario
-const mockUser: UserProfile = {
-  id: '1',
-  name: 'Mario', 
-  email: 'mario@example.com',
-  avatarUrl: 'https://placehold.co/100x100.png?text=M',
-  dataAihint: 'profile avatar',
-  level: 'Intermedio', 
-  xp: 590, 
-  wordsLearned: 120,
-  consecutiveDays: 3, 
-  currentVocabularyLevel: 'Intermediate', 
-  learningGoals: 'General English improvement and travel vocabulary',
-  dailyLessonTarget: 100, 
-  dailyLessonProgress: 45, 
+
+// Simulación de datos que vendrían del backend para el usuario "Mario"
+const mockBackendData: Omit<UserProfile, 'id' | 'email' | 'avatarUrl' | 'wordsLearned' | 'consecutiveDays' | 'currentVocabularyLevel' | 'learningGoals' | 'dataAihint' | 'dailyLessonTarget' | 'dailyLessonProgress'> & {name: string} = {
+  name: 'Mario',
+  score: 650, // XP ahora es score
+  userLevel: 'Intermedio', // Nivel ahora es userLevel
+  tematic: 'Viajes',
+  lastLogin: new Date(Date.now() - (1000 * 60 * 60 * 27)).toISOString(), // Ejemplo: hace 27 horas
 };
 
+
 export default function HomePage() {
-  const [user, setUser] = useState<UserProfile>(mockUser);
+  const [userData, setUserData] = useState<typeof mockBackendData | null>(null);
   const [recommendations, setRecommendations] = useState<string[]>([]);
   const [loadingRecs, setLoadingRecs] = useState(true);
+  const [timeSinceLastLogin, setTimeSinceLastLogin] = useState('');
 
+  // Simulación de carga de datos del backend y del usuario de Clerk
   useEffect(() => {
+    // En una app real, aquí harías un fetch a tu backend para obtener los datos del usuario.
+    // Y obtendrías el nombre de Clerk con useUser().
+    setUserData(mockBackendData);
+
     async function fetchRecommendations() {
       try {
         setLoadingRecs(true);
+        // Asumimos que 'currentVocabularyLevel' y 'learningGoals' vendrían de userData o se definirían de otra forma
         const result: DailyVocabularySuggestionsOutput = await getDailyVocabularySuggestions({
-          userLevel: user.currentVocabularyLevel,
-          learningGoals: user.learningGoals,
+          userLevel: 'Intermediate', // Placeholder
+          learningGoals: 'Travel vocabulary', // Placeholder
           numberOfSuggestions: 5,
         });
         setRecommendations(result.suggestedWords);
@@ -49,38 +52,65 @@ export default function HomePage() {
       }
     }
     fetchRecommendations();
-  }, [user.currentVocabularyLevel, user.learningGoals]);
+  }, []);
 
-  const displayLevel = "NIVEL 1"; 
-  const dailyProgressPercentage = user.dailyLessonProgress || 45; 
-  const levelUpMessage = "Sólo 3 entrenamientos más y subís de nivel.";
-  const dailyLessonProgressLabel = `${dailyProgressPercentage}% para completar tu lección del día`;
+  useEffect(() => {
+    if (userData?.lastLogin) {
+      const lastLoginDate = new Date(userData.lastLogin);
+      const now = new Date();
+      const days = differenceInDays(now, lastLoginDate);
+      const hours = differenceInHours(now, lastLoginDate);
 
+      if (days > 0) {
+        setTimeSinceLastLogin(`Han pasado ${formatDistanceToNowStrict(lastLoginDate, { locale: es, unit: 'day', addSuffix: true })}.`);
+      } else if (hours > 0) {
+        setTimeSinceLastLogin(`Han pasado ${formatDistanceToNowStrict(lastLoginDate, { locale: es, unit: 'hour', addSuffix: true })}.`);
+      } else {
+        setTimeSinceLastLogin("¡Volviste hace poco!");
+      }
+    }
+  }, [userData?.lastLogin]);
+
+  if (!userData) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <span className="loading loading-spinner loading-lg"></span>
+      </div>
+    );
+  }
+
+  // Datos para el UserProgressHeader y otros UI que antes venían de mockUser
+  const displayUserLevel = userData.userLevel || 'Novato';
+  const displayScore = userData.score || 0;
+  const dailyProgressPercentage = 45; // Placeholder, esto vendría de otra fuente
+  const levelUpMessage = "Sólo 3 entrenamientos más y subís de nivel."; // Placeholder
+  const dailyLessonProgressLabel = `${dailyProgressPercentage}% para completar tu lección del día`; // Placeholder
+  const wordsLearned = 120; // Placeholder
 
   return (
     <div className="container mx-auto p-4 space-y-6">
       <UserProgressHeader
-        userName={user.name}
-        xp={user.xp}
-        displayLevel={displayLevel}
+        userName={userData.name}
+        score={displayScore} // Cambiado de xp a score
+        userLevel={displayUserLevel} // Cambiado de displayLevel a userLevel
         levelUpMessage={levelUpMessage}
         dailyLessonProgressPercentage={dailyProgressPercentage}
         dailyLessonProgressLabel={dailyLessonProgressLabel}
       />
       
-      <div className="bg-base-200 p-3 rounded-lg shadow flex items-center justify-center text-sm text-base-content">
-        <Flame size={20} className="mr-2 text-orange-500" />
-        <span>¡Estás de racha! Llevas {user.consecutiveDays} respuestas correctas seguidas.</span>
+      <div className="bg-base-200 p-3 rounded-lg shadow flex flex-col items-center justify-center text-sm text-base-content text-center">
+        <span>Última temática seleccionada: <strong>{userData.tematic || 'No definida'}</strong></span>
+        {timeSinceLastLogin && <span className="mt-1">{timeSinceLastLogin}</span>}
       </div>
 
       <div className="text-center">
         <Link href="/practice" legacyBehavior>
           <Button className="btn btn-primary btn-lg">
             <BookOpen size={20} className="mr-2" />
-            {user.wordsLearned > 0 ? 'Continuar Práctica' : 'Hacer mi Primera Práctica'}
+            {wordsLearned > 0 ? 'Continuar Práctica' : 'Hacer mi Primera Práctica'}
           </Button>
         </Link>
-        {user.wordsLearned === 0 && (
+        {wordsLearned === 0 && (
            <p className="mt-2 text-sm text-base-content/70">
             <Link href="/level-test" className="link link-secondary">
               O empezá con una prueba de nivel

@@ -3,11 +3,12 @@
 
 import { Logo } from '@/components/ui/Logo';
 import { Progress } from '@/components/ui/progress';
+import type { UserProfile } from '@/types';
 
 interface UserProgressHeaderProps {
   userName: string;
-  xp: number;
-  displayLevel: string; 
+  score: number; // Changed from xp
+  userLevel: UserProfile["userLevel"]; // Changed from displayLevel
   levelUpMessage: string; 
   dailyLessonProgressPercentage: number;
   dailyLessonProgressLabel?: string; 
@@ -15,8 +16,8 @@ interface UserProgressHeaderProps {
 
 export function UserProgressHeader({
   userName,
-  xp,
-  displayLevel,
+  score,
+  userLevel,
   levelUpMessage,
   dailyLessonProgressPercentage,
   dailyLessonProgressLabel,
@@ -26,16 +27,16 @@ export function UserProgressHeader({
   return (
     <div className="bg-base-100 p-4 rounded-lg shadow-md space-y-4 mb-6">
       <div className="flex justify-between items-center">
-        {/* Left: Level and XP */}
+        {/* Left: Level and Score */}
         <div>
-          <p className="text-xs text-muted-foreground">{displayLevel}</p>
+          <p className="text-xs text-muted-foreground uppercase">{userLevel}</p> 
           <p className="text-xs text-muted-foreground mt-1">PUNTOS</p>
-          <p className="text-3xl font-bold text-primary">{xp}</p>
+          <p className="text-3xl font-bold text-primary">{score}</p>
         </div>
         
         {/* Center: Welcome messages */}
         <div className="text-center mx-2 flex-grow">
-          <h1 className="text-2xl font-semibold">¡Seguí así {userName}!</h1> {/* Aumentado de text-xl a text-2xl */}
+          <h1 className="text-2xl font-semibold">Bienvenido {userName}!</h1>
           <p className="text-sm text-muted-foreground">{levelUpMessage}</p>
         </div>
         

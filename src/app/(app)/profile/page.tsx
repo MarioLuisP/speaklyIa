@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -16,12 +15,14 @@ const mockUser: UserProfile = {
   email: 'mario@example.com',
   avatarUrl: 'https://placehold.co/150x150.png?text=M',
   dataAihint: "user avatar",
-  level: 'Novato',
-  xp: 75,
+  userLevel: 'Novato', // Changed from level
+  score: 75, // Changed from xp
   wordsLearned: 20,
   consecutiveDays: 3,
   currentVocabularyLevel: 'Novice',
   learningGoals: 'General English improvement and travel vocabulary',
+  tematic: 'Viajes', // Added
+  lastLogin: new Date(Date.now() - 86400000 * 2).toISOString(), // Example: 2 days ago
 };
 
 const levelIcons = {
@@ -94,8 +95,8 @@ export default function ProfilePage() {
           <div className="flex items-center gap-2 mt-4">
             <span className="text-xl font-semibold">Nivel:</span>
             <div className="badge badge-lg badge-outline gap-2 p-3">
-              {levelIcons[user.level]}
-              {user.level}
+              {levelIcons[user.userLevel]}
+              {user.userLevel}
             </div>
           </div>
 
@@ -104,7 +105,7 @@ export default function ProfilePage() {
           <div className="stats stats-vertical lg:stats-horizontal shadow bg-transparent">
             <div className="stat">
               <div className="stat-title">XP Total</div>
-              <div className="stat-value text-primary">{user.xp}</div>
+              <div className="stat-value text-primary">{user.score}</div>
               <div className="stat-desc">Puntos de experiencia</div>
             </div>
             <div className="stat">

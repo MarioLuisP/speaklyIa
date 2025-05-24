@@ -1,5 +1,6 @@
 import { Logo } from '@/components/ui/Logo';
 import { ThemeController } from './ThemeController';
+// Removed Clerk's UserButton import as we are reverting Clerk integration for now
 
 interface NavbarProps {
   hideAuthButtons?: boolean;
@@ -16,12 +17,13 @@ export function Navbar({ hideAuthButtons = false }: NavbarProps) {
       </div>
       <div className="navbar-end gap-2">
         <ThemeController />
+        {/* 
+          UserButton from Clerk was here. Removed as part of reverting Clerk.
+          If you re-integrate Clerk, you would add <UserButton afterSignOutUrl="/" /> back.
+        */}
         {!hideAuthButtons && (
           <>
-            {/* These buttons would typically be ShadCN buttons styled with DaisyUI classes */}
-            {/* For now, direct DaisyUI buttons */}
-            {/* <Link href="/login" className="btn btn-ghost btn-sm">Log In</Link>
-            <Link href="/signup" className="btn btn-primary btn-sm">Sign Up</Link> */}
+            {/* Login/Signup buttons could be re-added here if needed for non-app pages */}
           </>
         )}
       </div>
