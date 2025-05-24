@@ -30,29 +30,28 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import { Save, Settings, CheckCircle } from 'lucide-react'; // Added CheckCircle
+import { Save, Settings, CheckCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link'; // Added Link for the success message
+import Link from 'next/link';
 
 const practiceSettingsSchema = z.object({
   language: z.string().default('en'),
-  topic: z.enum(['negocios', 'viajes', 'tecnologia', 'vida_diaria']).default('viajes'), // "general" removed, "viajes" as default
+  topic: z.enum(['negocios', 'viajes', 'tecnologia', 'vida_diaria']).default('viajes'),
   numQuestions: z.coerce.number().default(10),
-  questionType: z.enum(['correct_answer', 'meaning', 'fill_blank', 'mix']).default('correct_answer'), // "correct_answer" as default
+  questionType: z.enum(['correct_answer', 'meaning', 'fill_blank', 'mix']).default('correct_answer'),
 });
 
 type PracticeSettingsFormValues = z.infer<typeof practiceSettingsSchema>;
 
-const defaultValues: PracticeSettingsFormValues = { // Ensured PracticeSettingsFormValues type for defaultValues
+const defaultValues: PracticeSettingsFormValues = {
   language: 'en',
-  topic: 'viajes', // Default topic set
+  topic: 'viajes',
   numQuestions: 10,
-  questionType: 'correct_answer', // Default question type set
+  questionType: 'correct_answer',
 };
 
 const languageOptions = [{ value: 'en', label: 'Inglés' }];
 const topicOptions = [
-  // "General" option removed
   { value: 'negocios', label: 'Negocios' },
   { value: 'viajes', label: 'Viajes' },
   { value: 'tecnologia', label: 'Tecnología' },
@@ -82,7 +81,6 @@ export default function PracticeSettingsPage() {
     defaultValues,
   });
 
-  // Effect to load saved settings from localStorage
   useEffect(() => {
     const savedSettingsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (savedSettingsRaw) {
@@ -101,18 +99,18 @@ export default function PracticeSettingsPage() {
     }
   }, [form]);
 
-  // Effect to hide success message if form values change
-  const watchedValues = form.watch();
-  useEffect(() => {
-    if (showSuccessMessage) {
-      setShowSuccessMessage(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedValues]); // Rerun when any form value changes
+  // const watchedValues = form.watch(); // Keep this if you need it for other effects
+  // Removed the useEffect that was hiding the success message too quickly
+  // useEffect(() => {
+  //   if (showSuccessMessage) {
+  //     setShowSuccessMessage(false);
+  //   }
+  // // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [watchedValues]);
 
   async function onSubmit(data: PracticeSettingsFormValues) {
     setIsSubmitting(true);
-    // Simulate API call
+    setShowSuccessMessage(false); // Hide previous success message if any
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
@@ -153,8 +151,8 @@ export default function PracticeSettingsPage() {
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
-                      value={field.value} // ensure value is controlled
-                      disabled // Solo Inglés por ahora
+                      value={field.value}
+                      disabled
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -183,7 +181,7 @@ export default function PracticeSettingsPage() {
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
-                      value={field.value} // ensure value is controlled
+                      value={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -212,7 +210,7 @@ export default function PracticeSettingsPage() {
                     <Select
                       onValueChange={(value) => field.onChange(parseInt(value))}
                       defaultValue={String(field.value)}
-                      value={String(field.value)} // ensure value is controlled
+                      value={String(field.value)}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -240,12 +238,11 @@ export default function PracticeSettingsPage() {
                     <FormLabel>Tipo de Preguntas</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      defaultValue={field.value} // Default is set by useForm
-                      value={field.value} // ensure value is controlled
+                      defaultValue={field.value}
+                      value={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
-                           {/* No placeholder needed if default is set */}
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
@@ -293,5 +290,3 @@ export default function PracticeSettingsPage() {
     </div>
   );
 }
-
-    
