@@ -5,15 +5,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { getDailyVocabularySuggestions, DailyVocabularySuggestionsOutput } from '@/ai/flows/vocabulary-suggestions';
-import type { UserProfile as AppUserProfile } from '@/types'; // Renamed to avoid conflict with Clerk's UserProfile
+import type { UserProfile as AppUserProfile } from '@/types';
 import { BookOpen, HelpCircle, Cog, Loader2 } from 'lucide-react';
 import { UserProgressHeader } from '@/components/layout/UserProgressHeader';
 import { differenceInDays, differenceInHours, formatDistanceToNowStrict } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { useUser } from '@clerk/nextjs';
+import { useUser } from '@/providers/MockAuthProvider'; // Use mock useUser
 import axios from 'axios';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-
 
 // Define interfaces for practice data (could be in types/index.ts)
 interface PracticeQuestionOption {
@@ -39,17 +38,10 @@ const defaultPracticeConfig = {
 };
 
 const LOCAL_STORAGE_PRACTICE_SETTINGS_KEY = 'speaklyai_practice_settings';
-const MOCK_USER_SESSION_KEY = 'speaklyai_mock_user_session';
-
-interface MockUserSession {
-  id: string;
-  firstName: string;
-  email: string;
-}
 
 export default function HomePage() {
-  const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
-  
+  const { user, isLoaded, isSignedIn } = useUser(); // Use mock useUser
+
   const [userProfileData, setUserProfileData] = useState<Omit<AppUserProfile, 'id' | 'email' | 'avatarUrl' | 'name' | 'dataAihint' | 'currentVocabularyLevel' | 'learningGoals' | 'dailyLessonTarget' | 'dailyLessonProgress' > | null>(null);
   const [timeSinceLastLogin, setTimeSinceLastLogin] = useState('');
   const [recommendations, setRecommendations] = useState<string[]>([]);
@@ -60,64 +52,42 @@ export default function HomePage() {
   const [isLoadingPractice, setIsLoadingPractice] = useState<boolean>(false);
   const [practiceError, setPracticeError] = useState<string | null>(null);
   const [initialPracticeFetchAttempted, setInitialPracticeFetchAttempted] = useState(false);
-  
-  const [effectiveUser, setEffectiveUser] = useState<MockUserSession | null>(null);
-
-  useEffect(() => {
-    if (isClerkLoaded) {
-      if (clerkUser) {
-        setEffectiveUser({
-          id: clerkUser.id,
-          firstName: clerkUser.firstName || clerkUser.username || 'Usuario',
-          email: clerkUser.emailAddresses?.[0]?.emailAddress || 'no-email@example.com',
-        });
-      } else {
-        const mockSessionRaw = localStorage.getItem(MOCK_USER_SESSION_KEY);
-        if (mockSessionRaw) {
-          try {
-            const mockUserData = JSON.parse(mockSessionRaw) as MockUserSession;
-            setEffectiveUser(mockUserData);
-          } catch (e) {
-            console.error("Error parsing mock user session from localStorage", e);
-            localStorage.removeItem(MOCK_USER_SESSION_KEY);
-          }
-        }
-      }
-    }
-  }, [clerkUser, isClerkLoaded]);
-
 
   // Simulate fetching user-specific data (score, level, tematic, lastLogin)
   useEffect(() => {
-    if (effectiveUser) { // Use effectiveUser which could be Clerk's or mock
+    if (user) { // Use user from mock context
       const mockBackendData: Omit<AppUserProfile, 'id' | 'email' | 'avatarUrl' | 'name' | 'dataAihint' | 'currentVocabularyLevel' | 'learningGoals' | 'dailyLessonTarget' | 'dailyLessonProgress' > = {
         score: 650,
         userLevel: 'Intermedio',
         tematic: 'Viajes',
-        lastLogin: new Date(Date.now() - (1000 * 60 * 60 * 27)).toISOString(),
+        lastLogin: new Date(Date.now() - (1000 * 60 * 60 * 27)).toISOString(), // Approx 1 day 3 hours ago
         consecutiveDays: 3,
         wordsLearned: 120,
       };
       setUserProfileData(mockBackendData);
+    } else {
+      setUserProfileData(null); // Clear profile data if no user
     }
-  }, [effectiveUser]);
+  }, [user]);
 
   useEffect(() => {
     if (userProfileData?.lastLogin) {
       const lastLoginDate = new Date(userProfileData.lastLogin);
       const now = new Date();
       const days = differenceInDays(now, lastLoginDate);
-      
+
       if (days > 0) {
-        setTimeSinceLastLogin(`Han pasado ${formatDistanceToNowStrict(lastLoginDate, { locale: es, unit: 'day', addSuffix: true })}.`);
+        setTimeSinceLastLogin(`Han pasado ${formatDistanceToNowStrict(lastLoginDate, { locale: es, addSuffix: true })}.`);
       } else {
         const hours = differenceInHours(now, lastLoginDate);
         if (hours > 0) {
-          setTimeSinceLastLogin(`Han pasado ${formatDistanceToNowStrict(lastLoginDate, { locale: es, unit: 'hour', addSuffix: true })}.`);
+          setTimeSinceLastLogin(`Han pasado ${formatDistanceToNowStrict(lastLoginDate, { locale: es, addSuffix: true })}.`);
         } else {
           setTimeSinceLastLogin("¡Volviste hace poco!");
         }
       }
+    } else {
+        setTimeSinceLastLogin('');
     }
   }, [userProfileData?.lastLogin]);
 
@@ -127,8 +97,8 @@ export default function HomePage() {
       try {
         setLoadingRecs(true);
         const result: DailyVocabularySuggestionsOutput = await getDailyVocabularySuggestions({
-          userLevel: userProfileData.userLevel || 'Intermedio', 
-          learningGoals: 'Travel vocabulary', 
+          userLevel: userProfileData.userLevel || 'Intermedio',
+          learningGoals: 'Travel vocabulary',
           numberOfSuggestions: 5,
         });
         setRecommendations(result.suggestedWords);
@@ -144,10 +114,10 @@ export default function HomePage() {
     }
   }, [userProfileData]);
 
-  const fetchInitialPracticeQuestions = useCallback(async (userId: string | undefined) => {
-    if (!userId) {
+  const fetchInitialPracticeQuestions = useCallback(async (currentUserId: string | undefined) => {
+    if (!currentUserId) {
       setPracticeError("No se pudo identificar al usuario para cargar preguntas.");
-      setIsLoadingPractice(false); // Ensure loading state is cleared
+      setIsLoadingPractice(false);
       return;
     }
 
@@ -159,9 +129,10 @@ export default function HomePage() {
       const savedSettingsRaw = localStorage.getItem(LOCAL_STORAGE_PRACTICE_SETTINGS_KEY);
       if (savedSettingsRaw) {
         const savedSettings = JSON.parse(savedSettingsRaw);
-        if (savedSettings.language && savedSettings.level && savedSettings.topic && savedSettings.numQuestions && savedSettings.questionType) { // numQuestions from form
+        // Validate saved settings structure before applying
+        if (savedSettings.language && savedSettings.level && savedSettings.topic && savedSettings.numQuestions && savedSettings.questionType) {
              configToUse = {
-                language: savedSettings.language === 'en' ? 'english' : savedSettings.language,
+                language: savedSettings.language === 'en' ? 'english' : savedSettings.language, // Assuming backend expects 'english'
                 level: savedSettings.level,
                 topic: savedSettings.topic,
                 questionCount: parseInt(String(savedSettings.numQuestions), 10) || 10,
@@ -172,17 +143,19 @@ export default function HomePage() {
     } catch (e) {
       console.warn("Could not parse saved practice settings from localStorage", e);
     }
-    
+
     const requestBody = {
         language: configToUse.language,
         level: configToUse.level,
         topic: configToUse.topic,
-        questionCount: configToUse.questionCount, // ensure this is what backend expects
+        questionCount: configToUse.questionCount,
         questionType: configToUse.questionType,
-        // userId: userId, // Backend might infer userId from auth token (Clerk) or not need it for this call
+        // userId is not sent in body, backend gets it from Clerk auth token
+        // For mock, we are not sending userId in body to this specific endpoint
     };
 
     try {
+      // Note: The backend for generate-questions might not need userId in body if it's generic or uses Clerk server-side
       const response = await axios.post<{source: string, questions: PracticeQuestion[], keywordData: PracticeKeyword[]}>('http://localhost:8080/api/practice/generate-questions', requestBody);
       setPracticeQuestions(response.data.questions);
       setPracticeKeywords(response.data.keywordData);
@@ -205,45 +178,28 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    // This effect triggers the fetch once we know who the user is (Clerk or mock)
-    if (isClerkLoaded && effectiveUser && !initialPracticeFetchAttempted) {
-      fetchInitialPracticeQuestions(effectiveUser.id);
+    // This effect triggers the fetch once we know who the user is (mock or real)
+    if (isLoaded && isSignedIn && user && !initialPracticeFetchAttempted) {
+      fetchInitialPracticeQuestions(user.id); // Use ID from mock context
       setInitialPracticeFetchAttempted(true);
-    } else if (isClerkLoaded && !effectiveUser && !initialPracticeFetchAttempted) {
-      // If Clerk has loaded and there's no user (neither Clerk nor mock),
-      // we might not want to fetch, or fetch generic questions.
-      // For now, we only fetch if effectiveUser.id is available.
+    } else if (isLoaded && !isSignedIn && !initialPracticeFetchAttempted) {
+      // If auth has loaded and there's no user (neither Clerk nor mock),
       // We set initialPracticeFetchAttempted to true to prevent retries if there's no user.
-      setInitialPracticeFetchAttempted(true); 
-      // console.log("Clerk loaded, no effective user, not fetching practice questions yet.");
+      setInitialPracticeFetchAttempted(true);
     }
-  }, [isClerkLoaded, effectiveUser, initialPracticeFetchAttempted, fetchInitialPracticeQuestions]);
+  }, [isLoaded, isSignedIn, user, initialPracticeFetchAttempted, fetchInitialPracticeQuestions]);
 
 
-  if (!isClerkLoaded && !effectiveUser) { // Show loader if Clerk is loading AND no mock user is immediately available
+  if (!isLoaded) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-2">Cargando autenticación...</p>
       </div>
     );
   }
-  
-  // If Clerk has loaded, but there's no effectiveUser (neither Clerk nor mock)
-  // and userProfileData (which depends on effectiveUser) is also not there,
-  // it might mean the user needs to login.
-  // However, Clerk middleware should handle redirection to login.
-  // This check is more for when effectiveUser is determined but profile data is still loading.
-  if (isClerkLoaded && !userProfileData && effectiveUser) {
-     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-2">Cargando datos de perfil...</p>
-      </div>
-    );
-  }
-  
-  // If no user at all after loading, it's an issue, or they should be redirected by middleware
-  if (isClerkLoaded && !effectiveUser && !userProfileData) {
+
+  if (!isSignedIn) {
      return (
       <div className="flex flex-col justify-center items-center min-h-screen text-center">
         <p className="mb-4">Parece que no has iniciado sesión.</p>
@@ -252,11 +208,21 @@ export default function HomePage() {
     );
   }
 
+  // If user is signed in, but profile data (which depends on user) is still loading
+  if (!userProfileData && user) {
+     return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-2">Cargando datos de perfil...</p>
+      </div>
+    );
+  }
 
-  const userName = effectiveUser?.firstName || "Usuario";
+
+  const userName = user?.firstName || "Usuario";
   const displayUserLevel = userProfileData?.userLevel || 'Novato';
   const displayScore = userProfileData?.score || 0;
-  const dailyProgressPercentage = userProfileData?.dailyLessonProgress || 45;
+  const dailyProgressPercentage = userProfileData?.dailyLessonProgress || 45; // Using fixed value for now
   const levelUpMsg = userProfileData?.wordsLearned && userProfileData.wordsLearned > 0 ? "Sólo 3 entrenamientos más y subís de nivel." : "¡Empezá tu primera práctica!";
   const dailyLessonProgLabel = `${dailyProgressPercentage}% para completar tu lección del día`;
   const wordsLearned = userProfileData?.wordsLearned || 0;
@@ -271,7 +237,7 @@ export default function HomePage() {
         dailyLessonProgressPercentage={dailyProgressPercentage}
         dailyLessonProgressLabel={dailyLessonProgLabel}
       />
-      
+
       <div className="bg-base-200 p-3 rounded-lg shadow flex flex-col items-center justify-center text-sm text-base-content text-center">
         <span>Última temática seleccionada: <strong>{userProfileData?.tematic || 'No definida'}</strong></span>
         {timeSinceLastLogin && <span className="mt-1">{timeSinceLastLogin}</span>}
@@ -290,7 +256,7 @@ export default function HomePage() {
           {practiceError.includes("Failed to fetch") && <p className="text-xs mt-1">Asegúrate que el backend esté corriendo en http://localhost:8080.</p>}
         </div>
       )}
-      
+
       {practiceQuestions.length > 0 && !isLoadingPractice && (
          <div className="text-center p-2 bg-green-500/10 text-green-700 rounded-md border border-green-500/30">
            <p className="text-sm">¡Preguntas de práctica listas! Ya puedes</p>
@@ -322,7 +288,7 @@ export default function HomePage() {
           </p>
         )}
       </div>
-      
+
       <div className="card bg-base-200 shadow-xl">
         <div className="card-body">
           <h2 className="card-title text-xl">Palabras Recomendadas del Día</h2>
@@ -336,7 +302,7 @@ export default function HomePage() {
             <ul className="list-disc list-inside mt-2 space-y-1 text-base-content">
               {recommendations.map((word, index) => (
                 <li key={index} className="capitalize flex items-center gap-2">
-                  {word} 
+                  {word}
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>

@@ -1,40 +1,38 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import React, { useState } from 'react'; // Added React for potential future use
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import Link from 'next/link';
 import { Logo } from '@/components/ui/Logo';
+import { useUser } from '@/providers/MockAuthProvider'; // Import signIn from mock context
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { signIn, isSignedIn } = useUser(); // Get signIn from mock context
+
+  // If already signed in (e.g. by hardcoded user in provider), redirect
+  React.useEffect(() => {
+    if (isSignedIn) {
+      router.push('/home');
+    }
+  }, [isSignedIn, router]);
+
+  const [email, setEmail] = useState('mario@speakly.ai');
+  const [password, setPassword] = useState('Password123'); // Pre-fill for convenience
   const [error, setError] = useState('');
 
-  // Redirect to Clerk's sign-in if preferred, or handle mock login
-  // useEffect(() => {
-  //   // Uncomment this if you want to default to Clerk's sign-in page
-  //   // router.replace('/sign-in');
-  // }, [router]);
 
-  const handleMockLogin = async (e: React.FormEvent) => {
+  const handleMockLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (email === 'mario@mail.com' && password === 'Password123') {
-      const mockUserData = {
-        id: 'mock_user_mario_001',
-        firstName: 'Mario',
-        email: 'mario@mail.com',
-        // Mimic some Clerk user structure if needed by other parts
-        // emailAddresses: [{ emailAddress: 'mario@mail.com' }], 
-      };
-      localStorage.setItem('speaklyai_mock_user_session', JSON.stringify(mockUserData));
-      router.push('/home');
+    if (email === 'mario@speakly.ai' && password === 'Password123') {
+      signIn(() => { // Call signIn from context
+        router.push('/home');
+      });
     } else {
       setError('Credenciales incorrectas para el mock login.');
     }
@@ -44,10 +42,10 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-base-200 p-4">
       <Card className="w-full max-w-sm shadow-xl">
         <CardHeader className="items-center text-center">
-          <Logo size="lg" className="mb-4" />
+          <Logo size="xl" className="mb-4" />
           <CardTitle className="text-2xl">Iniciar Sesión (Mock)</CardTitle>
           <CardDescription>
-            Usá mario@mail.com / Password123 para simulación.
+            Usá mario@speakly.ai / Password123 para simulación.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleMockLogin}>
@@ -57,7 +55,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="mario@mail.com"
+                placeholder="mario@speakly.ai"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -80,11 +78,12 @@ export default function LoginPage() {
             <Button type="submit" className="w-full">
               Entrar (Mock)
             </Button>
-            <Link href="/sign-in" legacyBehavior>
+            {/* Link to actual Clerk sign-in can be added back later if needed */}
+            {/* <Link href="/sign-in" legacyBehavior>
               <a className="text-sm link link-primary text-center w-full">
                 O iniciar sesión con Clerk
               </a>
-            </Link>
+            </Link> */}
           </CardFooter>
         </form>
       </Card>
