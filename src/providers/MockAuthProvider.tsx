@@ -1,17 +1,17 @@
 
 'use client';
 
-import React, { createContext, useContext, ReactNode, useState, useCallback } from 'react';
+import React, { createContext, useContext, ReactNode, useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation'; // For UserButton mock
 
-// Simplified MockUser, avoiding direct Clerk type dependency for this mock setup
+const MOCK_USER_SESSION_KEY = 'speaklyai_mock_user_session';
+
+// Simplified MockUser
 interface MockUser {
   id: string;
   firstName?: string | null;
-  lastName?: string | null;
-  username?: string | null;
   imageUrl?: string;
-  emailAddresses: Array<{ emailAddress: string; [key: string]: any }>; // Keep flexible for potential other email props
+  emailAddresses: Array<{ emailAddress: string; [key: string]: any }>;
 }
 
 interface MockAuthContextType {
@@ -27,49 +27,64 @@ const MockAuthContext = createContext<MockAuthContextType | undefined>(undefined
 const hardcodedUser: MockUser = {
   id: 'user_mock_mario_123',
   firstName: 'Mario',
-  username: 'mario_speakly',
-  imageUrl: 'https://placehold.co/40x40.png?text=M', // Adjusted size for navbar
-  dataAihint: 'mock user avatar',
+  imageUrl: 'https://placehold.co/40x40.png?text=M',
   emailAddresses: [{ emailAddress: 'mario@speakly.ai' }],
 };
 
 export const MockAuthProvider = ({ children }: { children: ReactNode }) => {
-  // Start with user as null, login page will call signIn
   const [currentUser, setCurrentUser] = useState<MockUser | null>(null);
-  const [isLoaded, setIsLoaded] = useState(true); // Simulate Clerk's loaded state
+  const [isLoaded, setIsLoaded] = useState(false); // Start as false, set to true after checking storage
 
-  const signIn = useCallback((callback?: () => void) => {
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem(MOCK_USER_SESSION_KEY);
+      if (storedUser) {
+        setCurrentUser(JSON.parse(storedUser));
+      }
+    } catch (error) {
+      console.error("Failed to parse mock user session from localStorage", error);
+      localStorage.removeItem(MOCK_USER_SESSION_KEY);
+    }
+    setIsLoaded(true); // Auth state is now "loaded"
+  }, []);
+
+  const signInHandler = useCallback((callback?: () => void) => {
+    localStorage.setItem(MOCK_USER_SESSION_KEY, JSON.stringify(hardcodedUser));
     setCurrentUser(hardcodedUser);
     if (callback) callback();
   }, []);
 
-  const signOut = useCallback((callback?: () => void) => {
+  const signOutHandler = useCallback((callback?: () => void) => {
+    localStorage.removeItem(MOCK_USER_SESSION_KEY);
     setCurrentUser(null);
     if (callback) callback();
   }, []);
 
-  const value = {
+  const value: MockAuthContextType = {
     user: currentUser,
     isLoaded: isLoaded,
     isSignedIn: !!currentUser,
-    signIn,
-    signOut,
+    signIn: signInHandler,
+    signOut: signOutHandler,
   };
+
+  if (!isLoaded) {
+    // Optional: Render a loading state or null while checking localStorage
+    // This prevents a flash of "logged out" content if the user is actually mock-logged-in
+    return null; // Or a global loader component
+  }
 
   return <MockAuthContext.Provider value={value}>{children}</MockAuthContext.Provider>;
 };
 
-export const useUser = (): { user: MockUser | null; isLoaded: boolean; isSignedIn: boolean } => {
+export const useUser = (): MockAuthContextType => {
   const context = useContext(MockAuthContext);
   if (context === undefined) {
-    // This error indicates incorrect setup, which is good for development
-    // For a production-like mock, might return { user: null, isLoaded: true, isSignedIn: false }
     throw new Error('useUser must be used within a MockAuthProvider');
   }
-  return { user: context.user, isLoaded: context.isLoaded, isSignedIn: context.isSignedIn };
+  return context;
 };
 
-// Mock <SignedIn> and <SignedOut> components for layout compatibility
 export const SignedIn = ({ children }: { children: React.ReactNode }) => {
   const { isSignedIn } = useUser();
   return isSignedIn ? <>{children}</> : null;
@@ -80,17 +95,12 @@ export const SignedOut = ({ children }: { children: React.ReactNode }) => {
   return !isSignedIn ? <>{children}</> : null;
 };
 
-// Mock <UserButton>
-// This is a very basic mock. A real UserButton has a dropdown, links to profile, etc.
 export const UserButton = ({ afterSignOutUrl }: { afterSignOutUrl?: string }) => {
-  const context = useContext(MockAuthContext);
+  const { user, signOut } = useUser();
   const router = useRouter();
 
-  if (!context) return null; // Should not happen if used correctly
-  const { user, signOut: mockSignOut } = context;
-
   const handleSignOut = () => {
-    mockSignOut(() => {
+    signOut(() => {
       router.push(afterSignOutUrl || '/');
     });
   };
@@ -107,9 +117,8 @@ export const UserButton = ({ afterSignOutUrl }: { afterSignOutUrl?: string }) =>
           style={{ width: '32px', height: '32px', borderRadius: '50%' }}
         />
       )}
-      {/* Basic sign out action for the mock */}
-      <button 
-        onClick={handleSignOut} 
+      <button
+        onClick={handleSignOut}
         style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '0.875rem' }}
       >
         Cerrar Sesión (Mock)

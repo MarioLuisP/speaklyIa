@@ -1,42 +1,55 @@
 
 "use client";
 
-import React, { useState } from 'react'; // Added React for potential future use
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Logo } from '@/components/ui/Logo';
-import { useUser } from '@/providers/MockAuthProvider'; // Import signIn from mock context
+import { useUser } from '@/providers/MockAuthProvider'; // Import useUser from mock context
+import Link from 'next/link';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn, isSignedIn } = useUser(); // Get signIn from mock context
-
-  // If already signed in (e.g. by hardcoded user in provider), redirect
-  React.useEffect(() => {
-    if (isSignedIn) {
-      router.push('/home');
-    }
-  }, [isSignedIn, router]);
+  const { signIn, isSignedIn, isLoaded } = useUser(); // Get signIn from mock context
 
   const [email, setEmail] = useState('mario@speakly.ai');
   const [password, setPassword] = useState('Password123'); // Pre-fill for convenience
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.push('/home');
+    }
+  }, [isLoaded, isSignedIn, router]);
 
   const handleMockLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (email === 'mario@speakly.ai' && password === 'Password123') {
-      signIn(() => { // Call signIn from context
+      signIn(() => { // Call signIn from context; it now handles localStorage
         router.push('/home');
       });
     } else {
       setError('Credenciales incorrectas para el mock login.');
     }
   };
+
+  if (!isLoaded) {
+    return <div>Cargando...</div>; // Or a proper loader
+  }
+  
+  // If already signed in (e.g., due to useEffect in MockAuthProvider loading from localStorage),
+  // this component might not even render fully if the redirect in the above useEffect happens.
+  // But this check is fine as a fallback.
+  if (isSignedIn) {
+    // router.push('/home') is handled by useEffect, no need to return null or redirect here
+    // as it might cause issues if this component is still trying to mount.
+    // Showing a "Redirecting..." message can be an option if the redirect isn't immediate.
+    return <div>Redirigiendo...</div>;
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-base-200 p-4">
@@ -79,11 +92,16 @@ export default function LoginPage() {
               Entrar (Mock)
             </Button>
             {/* Link to actual Clerk sign-in can be added back later if needed */}
-            {/* <Link href="/sign-in" legacyBehavior>
-              <a className="text-sm link link-primary text-center w-full">
-                O iniciar sesión con Clerk
-              </a>
-            </Link> */}
+            {/* 
+            <div className="text-center w-full text-sm">
+              o
+              <Link href="/sign-in" legacyBehavior>
+                <a className="link link-primary ml-1">
+                  iniciar sesión con Clerk
+                </a>
+              </Link>
+            </div>
+            */}
           </CardFooter>
         </form>
       </Card>
