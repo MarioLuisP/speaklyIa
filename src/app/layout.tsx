@@ -25,8 +25,20 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // This log runs on the server-side when Next.js builds/renders the layout.
+  // Check your terminal (where you run `npm run dev`) for this message.
+  if (typeof window === 'undefined') { // Ensure this only logs on the server
+    console.log(
+      '[SpeaklyAI Server Log] Attempting to load Clerk Publishable Key in RootLayout:',
+      process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? 'Found' : 'NOT Found or Undefined'
+    );
+  }
+
   return (
-    <ClerkProvider localization={esES}>
+    <ClerkProvider
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY} // This is where the key is passed
+      localization={esES}
+    >
       <html lang="es" data-theme="vocabmastertheme">
         <body className={`${poppins.variable} font-sans antialiased min-h-screen flex flex-col`}>
           <ThemeProvider>
