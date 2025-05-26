@@ -1,9 +1,13 @@
+
 import { Logo } from '@/components/ui/Logo';
 import { ThemeController } from './ThemeController';
-// Removed Clerk's UserButton import as we are reverting Clerk integration for now
+import { UserButton, SignedIn, SignedOut } from "@clerk/nextjs";
+import Link from 'next/link';
+import { Button } from '../ui/button';
+
 
 interface NavbarProps {
-  hideAuthButtons?: boolean;
+  hideAuthButtons?: boolean; // This prop might become less relevant with Clerk handling auth state
 }
 
 export function Navbar({ hideAuthButtons = false }: NavbarProps) {
@@ -15,17 +19,27 @@ export function Navbar({ hideAuthButtons = false }: NavbarProps) {
       <div className="navbar-center hidden lg:flex">
         {/* Future navigation links can go here */}
       </div>
-      <div className="navbar-end gap-2">
+      <div className="navbar-end gap-2 items-center">
         <ThemeController />
-        {/* 
-          UserButton from Clerk was here. Removed as part of reverting Clerk.
-          If you re-integrate Clerk, you would add <UserButton afterSignOutUrl="/" /> back.
-        */}
-        {!hideAuthButtons && (
-          <>
-            {/* Login/Signup buttons could be re-added here if needed for non-app pages */}
-          </>
-        )}
+        <SignedIn>
+          <UserButton afterSignOutUrl="/" appearance={{
+            elements: {
+              userButtonAvatarBox: "w-10 h-10", // Example to make avatar slightly larger
+            }
+          }}/>
+        </SignedIn>
+        <SignedOut>
+          {!hideAuthButtons && (
+            <>
+              <Link href="/sign-in" legacyBehavior passHref>
+                <Button variant="ghost">Iniciar Sesión</Button>
+              </Link>
+              <Link href="/sign-up" legacyBehavior passHref>
+                <Button variant="default">Registrarse</Button>
+              </Link>
+            </>
+          )}
+        </SignedOut>
       </div>
     </div>
   );

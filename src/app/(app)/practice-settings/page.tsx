@@ -30,32 +30,41 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import { Save, Settings, CheckCircle } from 'lucide-react';
+import { Save, Settings, CheckCircle, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+const LOCAL_STORAGE_PRACTICE_SETTINGS_KEY = 'speaklyai_practice_settings';
+
 const practiceSettingsSchema = z.object({
-  language: z.string().default('en'),
-  topic: z.enum(['negocios', 'viajes', 'tecnologia', 'vida_diaria']).default('viajes'),
+  language: z.string().default('en'), // For localStorage, frontend uses 'en', API call will use 'english'
+  level: z.enum(['beginner', 'intermediate', 'advanced']).default('beginner'),
+  topic: z.enum(['business', 'travel', 'technology', 'daily-life']).default('daily-life'),
   numQuestions: z.coerce.number().default(10),
-  questionType: z.enum(['correct_answer', 'meaning', 'fill_blank', 'mix']).default('correct_answer'),
+  questionType: z.enum(['multiple-choice', 'meaning', 'fill_blank', 'mix']).default('multiple-choice'),
 });
 
 type PracticeSettingsFormValues = z.infer<typeof practiceSettingsSchema>;
 
 const defaultValues: PracticeSettingsFormValues = {
   language: 'en',
-  topic: 'viajes',
+  level: 'beginner',
+  topic: 'daily-life',
   numQuestions: 10,
-  questionType: 'correct_answer',
+  questionType: 'multiple-choice',
 };
 
-const languageOptions = [{ value: 'en', label: 'Inglés' }];
+const languageOptions = [{ value: 'en', label: 'Inglés' }]; // Backend might expect 'english'
+const levelOptions = [
+    { value: 'beginner', label: 'Principiante (Beginner)' },
+    { value: 'intermediate', label: 'Intermedio (Intermediate)' },
+    { value: 'advanced', label: 'Avanzado (Advanced)' },
+];
 const topicOptions = [
-  { value: 'negocios', label: 'Negocios' },
-  { value: 'viajes', label: 'Viajes' },
-  { value: 'tecnologia', label: 'Tecnología' },
-  { value: 'vida_diaria', label: 'Vida Diaria' },
+  { value: 'business', label: 'Negocios' },
+  { value: 'travel', label: 'Viajes' },
+  { value: 'technology', label: 'Tecnología' },
+  { value: 'daily-life', label: 'Vida Diaria' },
 ];
 const numQuestionsOptions = [
   { value: 5, label: '5 Preguntas' },
@@ -63,13 +72,11 @@ const numQuestionsOptions = [
   { value: 15, label: '15 Preguntas' },
 ];
 const questionTypeOptions = [
-  { value: 'correct_answer', label: 'Respuesta Correcta' },
-  { value: 'meaning', label: 'Cuál es el significado' },
-  { value: 'fill_blank', label: 'Completa la que falta' },
-  { value: 'mix', label: 'Mix de las 3' },
+  { value: 'multiple-choice', label: 'Opción Múltiple' },
+  { value: 'meaning', label: 'Cuál es el significado (Próximamente)' },
+  { value: 'fill_blank', label: 'Completa la que falta (Próximamente)' },
+  { value: 'mix', label: 'Mix de las 3 (Próximamente)' },
 ];
-
-const LOCAL_STORAGE_KEY = 'speaklyai_practice_settings';
 
 export default function PracticeSettingsPage() {
   const router = useRouter();
@@ -82,7 +89,7 @@ export default function PracticeSettingsPage() {
   });
 
   useEffect(() => {
-    const savedSettingsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const savedSettingsRaw = localStorage.getItem(LOCAL_STORAGE_PRACTICE_SETTINGS_KEY);
     if (savedSettingsRaw) {
       try {
         const savedSettings = JSON.parse(savedSettingsRaw);
@@ -90,39 +97,31 @@ export default function PracticeSettingsPage() {
         if (result.success) {
           form.reset(result.data);
         } else {
-          localStorage.removeItem(LOCAL_STORAGE_KEY);
+          console.warn("Invalid saved settings, removing from localStorage:", result.error);
+          localStorage.removeItem(LOCAL_STORAGE_PRACTICE_SETTINGS_KEY);
         }
       } catch (error) {
         console.error("Error loading practice settings from localStorage:", error);
-        localStorage.removeItem(LOCAL_STORAGE_KEY);
+        localStorage.removeItem(LOCAL_STORAGE_PRACTICE_SETTINGS_KEY);
       }
     }
   }, [form]);
 
-  // const watchedValues = form.watch(); // Keep this if you need it for other effects
-  // Removed the useEffect that was hiding the success message too quickly
-  // useEffect(() => {
-  //   if (showSuccessMessage) {
-  //     setShowSuccessMessage(false);
-  //   }
-  // // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [watchedValues]);
-
   async function onSubmit(data: PracticeSettingsFormValues) {
     setIsSubmitting(true);
-    setShowSuccessMessage(false); // Hide previous success message if any
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    setShowSuccessMessage(false); 
+    await new Promise(resolve => setTimeout(resolve, 700)); // Simulate async operation
 
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(LOCAL_STORAGE_PRACTICE_SETTINGS_KEY, JSON.stringify(data));
     toast({
       title: 'Configuración Guardada',
       description: (
-        <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
+        <pre className="mt-2 w-full max-w-[340px] rounded-md bg-slate-950 p-4 overflow-x-auto">
           <code className="text-white">{JSON.stringify(data, null, 2)}</code>
         </pre>
       ),
     });
-    console.log('Practice settings saved:', data);
+    console.log('Practice settings saved to localStorage:', data);
     setShowSuccessMessage(true);
     setIsSubmitting(false);
   }
@@ -137,6 +136,7 @@ export default function PracticeSettingsPage() {
           </div>
           <CardDescription>
             Personalizá tus sesiones de práctica para enfocarte en lo que más necesitás.
+            Estas opciones se usarán para generar tus preguntas.
           </CardDescription>
         </CardHeader>
         <Form {...form}>
@@ -150,9 +150,8 @@ export default function PracticeSettingsPage() {
                     <FormLabel>Idioma de la Práctica</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      defaultValue={field.value}
                       value={field.value}
-                      disabled
+                      disabled // Fixed to English for now
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -161,6 +160,33 @@ export default function PracticeSettingsPage() {
                       </FormControl>
                       <SelectContent>
                         {languageOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="level"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nivel de Dificultad</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccioná un nivel" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {levelOptions.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}
                           </SelectItem>
@@ -180,7 +206,6 @@ export default function PracticeSettingsPage() {
                     <FormLabel>Temática</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      defaultValue={field.value}
                       value={field.value}
                     >
                       <FormControl>
@@ -208,9 +233,9 @@ export default function PracticeSettingsPage() {
                   <FormItem>
                     <FormLabel>Cantidad de Preguntas por Sesión</FormLabel>
                     <Select
-                      onValueChange={(value) => field.onChange(parseInt(value))}
-                      defaultValue={String(field.value)}
+                      onValueChange={(value) => field.onChange(parseInt(value, 10))}
                       value={String(field.value)}
+                      // disabled // Fixed to 10 for now, enable if backend supports variable count
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -238,8 +263,8 @@ export default function PracticeSettingsPage() {
                     <FormLabel>Tipo de Preguntas</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      defaultValue={field.value}
                       value={field.value}
+                      disabled={field.value !== 'multiple-choice'} // Only multiple-choice for now
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -248,7 +273,11 @@ export default function PracticeSettingsPage() {
                       </FormControl>
                       <SelectContent>
                         {questionTypeOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
+                          <SelectItem 
+                            key={option.value} 
+                            value={option.value}
+                            disabled={option.value !== 'multiple-choice'} // Only multiple-choice for now
+                          >
                             {option.label}
                           </SelectItem>
                         ))}
@@ -262,10 +291,7 @@ export default function PracticeSettingsPage() {
             <CardFooter className="flex justify-end">
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? (
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                  <Loader2 className="animate-spin mr-2 h-4 w-4" />
                 ) : (
                   <Save size={18} className="mr-2" />
                 )}
@@ -281,8 +307,8 @@ export default function PracticeSettingsPage() {
           <div className="flex items-center justify-center">
             <CheckCircle size={24} className="mr-3 text-green-600" />
             <div className="text-left">
-              <p className="font-semibold">¡Configuración guardada, excelente elección!</p>
-              <p className="text-sm">Ya puedes <Link href="/practice" className="font-medium text-green-800 hover:underline">ir a tu práctica diaria</Link>.</p>
+              <p className="font-semibold">¡Configuración guardada!</p>
+              <p className="text-sm">Tus preferencias se usarán para la próxima sesión de práctica. Ya puedes <Link href="/practice" className="font-medium text-green-800 hover:underline">ir a tu práctica diaria</Link>.</p>
             </div>
           </div>
         </div>

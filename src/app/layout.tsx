@@ -1,20 +1,22 @@
 import type {Metadata} from 'next';
-import { Poppins } from 'next/font/google'; // Changed from Geist
+import { Poppins } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from '@/providers/ThemeProvider';
+import { ClerkProvider } from '@clerk/nextjs';
+import { esES } from "@clerk/localizations";
 
-const poppins = Poppins({ // Instantiated Poppins
+const poppins = Poppins({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'], // Added common weights
+  weight: ['400', '500', '600', '700'],
   variable: '--font-poppins',
 });
 
 export const metadata: Metadata = {
-  title: 'SpeaklyAI', // Changed from VocabMaster AI
-  description: 'Mejorá tu vocabulario día a día con IA', // Kept Spanish description
+  title: 'SpeaklyAI',
+  description: 'Mejorá tu vocabulario día a día con IA',
   icons: {
-    icon: '/favicon.ico', // Standard path for favicon in the public directory
+    icon: '/favicon.ico',
   },
 };
 
@@ -24,13 +26,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" data-theme="vocabmastertheme">
-      <body className={`${poppins.variable} font-sans antialiased min-h-screen flex flex-col`}> {/* Used poppins variable */}
-        <ThemeProvider>
-          {children}
-          <Toaster />
-        </ThemeProvider>
-      </body>
-    </html>
+    <ClerkProvider localization={esES}>
+      <html lang="es" data-theme="vocabmastertheme">
+        <body className={`${poppins.variable} font-sans antialiased min-h-screen flex flex-col`}>
+          <ThemeProvider>
+            {children}
+            <Toaster />
+          </ThemeProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
