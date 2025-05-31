@@ -4,7 +4,8 @@ import { Poppins } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from '@/providers/ThemeProvider';
-import { MockAuthProvider } from '@/providers/MockAuthProvider'; // Import MockAuthProvider
+import { MockAuthProvider } from '@/providers/MockAuthProvider';
+import { PracticeProvider } from '@/providers/PracticeContext'; // Using alias
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
   title: 'SpeaklyAI',
   description: 'Mejorá tu vocabulario día a día con IA',
   icons: {
-    icon: '/favicon.ico',
+    icon: '/favicon.ico', // Ensure this file exists in public/
   },
 };
 
@@ -25,20 +26,18 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Removed Clerk-specific environment variable checks and error page
-  // as we are now using MockAuthProvider.
-
   return (
-    // ClerkProvider is replaced by MockAuthProvider
-    <MockAuthProvider>
-      <html lang="es" data-theme="vocabmastertheme">
-        <body className={`${poppins.variable} font-sans antialiased min-h-screen flex flex-col`}>
-          <ThemeProvider>
-            {children}
-            <Toaster />
-          </ThemeProvider>
-        </body>
-      </html>
-    </MockAuthProvider>
+    <html lang="es" data-theme="vocabmastertheme">
+      <body className={`${poppins.variable} font-sans antialiased min-h-screen flex flex-col`}>
+        <MockAuthProvider>
+          <PracticeProvider>
+            <ThemeProvider>
+              {children}
+            </ThemeProvider>
+          </PracticeProvider>
+        </MockAuthProvider>
+        <Toaster />
+      </body>
+    </html>
   );
 }
