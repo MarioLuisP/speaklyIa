@@ -14,7 +14,10 @@ export function Navbar({ hideAuthButtons = false }: NavbarProps) {
     <div className="navbar bg-base-100 shadow-sm sticky top-0 z-30">
       <div className="navbar-start">
         <Link href={user ? "/home" : "/"} passHref legacyBehavior>
-          <a><Logo /></a>
+          {/* Apply hover styles that were previously in Logo.tsx's Link here */}
+          <a className="hover:opacity-80 transition-opacity">
+            <Logo />
+          </a>
         </Link>
       </div>
       <div className="navbar-center hidden lg:flex">
