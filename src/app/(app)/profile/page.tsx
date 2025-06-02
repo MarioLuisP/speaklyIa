@@ -5,13 +5,14 @@ import React, { useState, useEffect } from 'react';
 import type { UserProfile as AppUserProfile } from '@/types';
 import { UserAvatar } from '@/components/UserAvatar';
 import { Button } from '@/components/ui/button';
-import { Shield, Star, Zap, Edit3, Mail, LogOut, Save, Loader2 } from 'lucide-react'; 
+import { Card } from '@/components/ui/card'; // Added import for Card
+import { Shield, Star, Zap, Edit3, Mail, LogOut, Save, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@/providers/MockAuthContext'; // Updated import path
+import { useUser } from '@/providers/MockAuthContext';
 
 const defaultMockUserAppData: AppUserProfile = {
-  id: 'user_mock_mario_123', 
+  id: 'user_mock_mario_123',
   name: 'Mario',
   email: 'mario@speakly.ai',
   avatarUrl: 'https://placehold.co/150x150.png?text=M',
@@ -20,7 +21,7 @@ const defaultMockUserAppData: AppUserProfile = {
   score: 650,
   wordsLearned: 120,
   consecutiveDays: 3,
-  currentVocabularyLevel: 'Intermediate', 
+  currentVocabularyLevel: 'Intermediate',
   learningGoals: 'General English improvement and travel vocabulary',
   tematic: 'Viajes',
   lastLogin: new Date(Date.now() - 86400000 * 2).toISOString(),
@@ -33,7 +34,7 @@ const levelIcons = {
 };
 
 export default function ProfilePage() {
-  const { user, signOut: mockSignOut, isLoaded, isSignedIn, updateUserProfile } = useUser(); // Added updateUserProfile
+  const { user, signOut: mockSignOut, isLoaded, isSignedIn, updateUserProfile } = useUser();
   const router = useRouter();
 
   const [userAppData, setUserAppData] = useState<AppUserProfile>(defaultMockUserAppData);
@@ -45,7 +46,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (isLoaded && isSignedIn && user) {
       setUserAppData(prev => ({
-        ...defaultMockUserAppData, 
+        ...defaultMockUserAppData,
         id: user.id,
         name: user.firstName || 'Usuario',
         email: user.emailAddresses?.[0]?.emailAddress || 'no-email@example.com',
@@ -70,7 +71,7 @@ export default function ProfilePage() {
 
   const handleEditToggle = () => {
     if (isEditing) {
-      updateUserProfile({ firstName: editName }); 
+      updateUserProfile({ firstName: editName });
       setUserAppData(prev => ({ ...prev, name: editName, email: editEmail }));
       console.log("Profile saved (simulated):", { name: editName, email: editEmail });
     } else {
@@ -86,7 +87,7 @@ export default function ProfilePage() {
     });
   };
 
-  if (!isLoaded || (isSignedIn && !userAppData.id)) { 
+  if (!isLoaded || (isSignedIn && !userAppData.id)) {
      return (
       <div className="flex justify-center items-center min-h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -94,7 +95,7 @@ export default function ProfilePage() {
      );
   }
 
-  if (!isSignedIn) { 
+  if (!isSignedIn) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <p>Redirigiendo a inicio de sesión...</p>
@@ -130,7 +131,7 @@ export default function ProfilePage() {
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
                   className="input input-bordered w-full bg-base-100"
-                  disabled 
+                  disabled
                 />
               </label>
             </>
