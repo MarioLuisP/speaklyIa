@@ -5,13 +5,13 @@ import React, { useState, useEffect } from 'react';
 import type { UserProfile as AppUserProfile } from '@/types';
 import { UserAvatar } from '@/components/UserAvatar';
 import { Button } from '@/components/ui/button';
-import { Shield, Star, Zap, Edit3, Mail, LogOut, Save, Loader2 } from 'lucide-react'; // Added Loader2
+import { Shield, Star, Zap, Edit3, Mail, LogOut, Save, Loader2 } from 'lucide-react'; 
 import { Input } from '@/components/ui/input';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@/providers/MockAuthProvider'; // Use mock useUser
+import { useUser } from '@/providers/MockAuthContext'; // Updated import path
 
 const defaultMockUserAppData: AppUserProfile = {
-  id: 'user_mock_mario_123', // Consistent with hardcoded user
+  id: 'user_mock_mario_123', 
   name: 'Mario',
   email: 'mario@speakly.ai',
   avatarUrl: 'https://placehold.co/150x150.png?text=M',
@@ -20,7 +20,7 @@ const defaultMockUserAppData: AppUserProfile = {
   score: 650,
   wordsLearned: 120,
   consecutiveDays: 3,
-  currentVocabularyLevel: 'Intermediate', // Aligns with AppUserProfile
+  currentVocabularyLevel: 'Intermediate', 
   learningGoals: 'General English improvement and travel vocabulary',
   tematic: 'Viajes',
   lastLogin: new Date(Date.now() - 86400000 * 2).toISOString(),
@@ -33,10 +33,9 @@ const levelIcons = {
 };
 
 export default function ProfilePage() {
-  const { user, signOut: mockSignOut, isLoaded, isSignedIn } = useUser(); // Use mock useUser and signOut
+  const { user, signOut: mockSignOut, isLoaded, isSignedIn, updateUserProfile } = useUser(); // Added updateUserProfile
   const router = useRouter();
 
-  // userAppData will hold the combined data for display and editing
   const [userAppData, setUserAppData] = useState<AppUserProfile>(defaultMockUserAppData);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
@@ -45,20 +44,25 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (isLoaded && isSignedIn && user) {
-      // If using a real backend, fetch app-specific data here using user.id
-      // For now, we'll merge mock context user data with some defaults
       setUserAppData(prev => ({
-        ...defaultMockUserAppData, // Start with defaults for score, level etc.
+        ...defaultMockUserAppData, 
         id: user.id,
         name: user.firstName || 'Usuario',
         email: user.emailAddresses?.[0]?.emailAddress || 'no-email@example.com',
         avatarUrl: user.imageUrl || prev.avatarUrl,
         dataAihint: user.imageUrl ? "user avatar" : prev.dataAihint,
+        score: user.score || prev.score,
+        userLevel: user.userLevel || prev.userLevel,
+        wordsLearned: user.wordsLearned || prev.wordsLearned,
+        consecutiveDays: user.consecutiveDays || prev.consecutiveDays,
+        currentVocabularyLevel: user.currentVocabularyLevel || prev.currentVocabularyLevel,
+        learningGoals: user.learningGoals || prev.learningGoals,
+        tematic: user.tematic || prev.tematic,
+        lastLogin: user.lastLogin || prev.lastLogin,
       }));
       setEditName(user.firstName || 'Usuario');
       setEditEmail(user.emailAddresses?.[0]?.emailAddress || 'no-email@example.com');
     } else if (isLoaded && !isSignedIn) {
-        // If no user is signed in (e.g., after mock sign out), redirect to login
         router.push('/login');
     }
   }, [user, isLoaded, isSignedIn, router]);
@@ -66,13 +70,10 @@ export default function ProfilePage() {
 
   const handleEditToggle = () => {
     if (isEditing) {
-      // Simulate saving profile changes
+      updateUserProfile({ firstName: editName }); 
       setUserAppData(prev => ({ ...prev, name: editName, email: editEmail }));
-      // In a real app, call backend API to update user profile
-      // If user object in MockAuthProvider needs update, this would require context modification
       console.log("Profile saved (simulated):", { name: editName, email: editEmail });
     } else {
-      // When entering edit mode, populate edit fields from current userAppData
       setEditName(userAppData.name);
       setEditEmail(userAppData.email);
     }
@@ -85,7 +86,7 @@ export default function ProfilePage() {
     });
   };
 
-  if (!isLoaded || (isSignedIn && !userAppData.id)) { // Show loader if auth is loading OR if signed in but app data not ready
+  if (!isLoaded || (isSignedIn && !userAppData.id)) { 
      return (
       <div className="flex justify-center items-center min-h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -93,7 +94,7 @@ export default function ProfilePage() {
      );
   }
 
-  if (!isSignedIn) { // Should be caught by useEffect redirect, but as a fallback
+  if (!isSignedIn) { 
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <p>Redirigiendo a inicio de sesión...</p>
@@ -129,7 +130,7 @@ export default function ProfilePage() {
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
                   className="input input-bordered w-full bg-base-100"
-                  disabled // Email usually not editable if tied to auth provider
+                  disabled 
                 />
               </label>
             </>

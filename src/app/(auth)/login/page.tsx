@@ -8,16 +8,28 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Logo } from '@/components/ui/Logo';
-import { useUser } from '@/providers/MockAuthProvider'; // Import useUser from mock context
+import { useUser } from '@/providers/MockAuthContext'; // Updated import path
 import Link from 'next/link';
+import { usePractice, PracticeSettings } from '@/providers/PracticeContext';
+import { Loader2 } from 'lucide-react';
+
+const defaultPracticeSettings: PracticeSettings = {
+  language: "english",
+  level: "beginner",
+  topic: "travel",
+  numQuestions: 10,
+  questionType: "multiple-choice",
+};
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn, isSignedIn, isLoaded } = useUser(); // Get signIn from mock context
+  const { signIn, isSignedIn, isLoaded, user } = useUser(); 
+  const { loadPracticeQuestions, getPracticeSettingsFromStorage } = usePractice();
 
   const [email, setEmail] = useState('mario@speakly.ai');
-  const [password, setPassword] = useState('Password123'); // Pre-fill for convenience
+  const [password, setPassword] = useState('Password123'); 
   const [error, setError] = useState('');
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
@@ -25,30 +37,46 @@ export default function LoginPage() {
     }
   }, [isLoaded, isSignedIn, router]);
 
-  const handleMockLogin = (e: React.FormEvent) => {
+  const handleMockLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsSigningIn(true);
+
     if (email === 'mario@speakly.ai' && password === 'Password123') {
-      signIn(() => { // Call signIn from context; it now handles localStorage
-        router.push('/home');
+      signIn(async () => { 
+        let settingsToLoad = getPracticeSettingsFromStorage();
+        if (!settingsToLoad) {
+            settingsToLoad = {
+                ...defaultPracticeSettings,
+                level: "beginner", 
+            };
+        }
+        
+        try {
+          console.log("LoginPage: Attempting to load practice questions with settings:", settingsToLoad);
+          await loadPracticeQuestions(settingsToLoad);
+          console.log("LoginPage: Practice questions loading initiated.");
+          router.push('/home');
+        } catch (loadError) {
+          console.error("LoginPage: Error loading practice questions after login:", loadError);
+          setError("Login exitoso, pero falló la carga de preguntas de práctica.");
+          router.push('/home'); 
+        } finally {
+          setIsSigningIn(false);
+        }
       });
     } else {
       setError('Credenciales incorrectas para el mock login.');
+      setIsSigningIn(false);
     }
   };
 
   if (!isLoaded) {
-    return <div>Cargando...</div>; // Or a proper loader
+    return <div className="flex justify-center items-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; 
   }
   
-  // If already signed in (e.g., due to useEffect in MockAuthProvider loading from localStorage),
-  // this component might not even render fully if the redirect in the above useEffect happens.
-  // But this check is fine as a fallback.
   if (isSignedIn) {
-    // router.push('/home') is handled by useEffect, no need to return null or redirect here
-    // as it might cause issues if this component is still trying to mount.
-    // Showing a "Redirecting..." message can be an option if the redirect isn't immediate.
-    return <div>Redirigiendo...</div>;
+    return <div className="flex justify-center items-center min-h-screen">Redirigiendo...</div>;
   }
 
   return (
@@ -72,6 +100,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={isSigningIn}
               />
             </div>
             <div className="space-y-2">
@@ -83,25 +112,16 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={isSigningIn}
               />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full">
-              Entrar (Mock)
+            <Button type="submit" className="w-full" disabled={isSigningIn}>
+              {isSigningIn ? <Loader2 className="animate-spin mr-2 h-4 w-4"/> : null}
+              {isSigningIn ? 'Entrando...' : 'Entrar (Mock)'}
             </Button>
-            {/* Link to actual Clerk sign-in can be added back later if needed */}
-            {/* 
-            <div className="text-center w-full text-sm">
-              o
-              <Link href="/sign-in" legacyBehavior>
-                <a className="link link-primary ml-1">
-                  iniciar sesión con Clerk
-                </a>
-              </Link>
-            </div>
-            */}
           </CardFooter>
         </form>
       </Card>
