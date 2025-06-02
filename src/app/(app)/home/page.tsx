@@ -6,17 +6,13 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { getDailyVocabularySuggestions, DailyVocabularySuggestionsOutput } from '@/ai/flows/vocabulary-suggestions';
 import type { UserProfile as AppUserProfile } from '@/types';
-import { BookOpen, HelpCircle, Cog, Loader2 } from 'lucide-react';
+import { BookOpen, HelpCircle, Cog, Loader2, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
 import { UserProgressHeader } from '@/components/layout/UserProgressHeader';
 import { differenceInDays, differenceInHours, formatDistanceToNowStrict } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useUser } from '@/providers/MockAuthContext';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { usePractice } from '@/providers/PracticeContext'; // Import usePractice
-
-// Removed local PracticeQuestion interfaces as we'll use types from context/global types
-
-// const LOCAL_STORAGE_PRACTICE_SETTINGS_KEY = 'speaklyai_practice_settings'; // No longer needed here for fetching
+import { usePractice } from '@/providers/PracticeContext';
 
 export default function HomePage() {
   const { user, isLoaded, isSignedIn } = useUser();
@@ -25,7 +21,6 @@ export default function HomePage() {
     isLoadingPractice: isLoadingContextPractice,
     practiceError: contextPracticeError,
     getPracticeSettingsFromStorage,
-    loadPracticeQuestions, // Keep if we want a refresh button, but initial load is from login
   } = usePractice();
 
   const [userProfileData, setUserProfileData] = useState<Omit<AppUserProfile, 'id' | 'email' | 'avatarUrl' | 'name' | 'dataAihint' | 'currentVocabularyLevel' | 'learningGoals' | 'dailyLessonTarget' | 'dailyLessonProgress' > | null>(null);
@@ -33,7 +28,6 @@ export default function HomePage() {
   const [recommendations, setRecommendations] = useState<string[]>([]);
   const [loadingRecs, setLoadingRecs] = useState(true);
   const [currentPracticeSettings, setCurrentPracticeSettings] = useState<ReturnType<typeof getPracticeSettingsFromStorage>>(null);
-
 
   useEffect(() => {
     if (user) {
@@ -46,7 +40,6 @@ export default function HomePage() {
         wordsLearned: user.wordsLearned || 0,
       };
       setUserProfileData(mockBackendData);
-      // Load current practice settings from storage to display relevant info
       const settings = getPracticeSettingsFromStorage();
       setCurrentPracticeSettings(settings);
 
@@ -84,7 +77,7 @@ export default function HomePage() {
         setLoadingRecs(true);
         const result: DailyVocabularySuggestionsOutput = await getDailyVocabularySuggestions({
           userLevel: userProfileData.userLevel || 'Intermedio',
-          learningGoals: 'Travel vocabulary',
+          learningGoals: 'Travel vocabulary', // This could be dynamic based on user settings
           numberOfSuggestions: 5,
         });
         setRecommendations(result.suggestedWords);
@@ -100,9 +93,6 @@ export default function HomePage() {
     }
   }, [userProfileData]);
 
-
-  // Initial practice questions are now loaded by PracticeContext, typically after login.
-  // This component consumes the state from the context.
 
   if (!isLoaded) {
     return (
@@ -134,7 +124,7 @@ export default function HomePage() {
   const userName = user?.firstName || "Usuario";
   const displayUserLevel = userProfileData?.userLevel || 'Novato';
   const displayScore = userProfileData?.score || 0;
-  const dailyProgressPercentage = 45; // Placeholder, should come from user profile
+  const dailyProgressPercentage = 45; 
   const levelUpMsg = (userProfileData?.wordsLearned || 0) > 0 ? "Sólo 3 entrenamientos más y subís de nivel." : "¡Empezá tu primera práctica!";
   const dailyLessonProgLabel = `${dailyProgressPercentage}% para completar tu lección del día`;
   const wordsLearned = userProfileData?.wordsLearned || 0;
@@ -162,19 +152,32 @@ export default function HomePage() {
       {isLoadingContextPractice && (
         <div className="text-center p-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-          <p>Cargando preguntas de práctica desde el contexto...</p>
-        </div>
-      )}
-      {contextPracticeError && !isLoadingContextPractice && (
-        <div role="alert" className="alert alert-error">
-          <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          <span>{contextPracticeError}</span>
-          {contextPracticeError.includes("Failed to fetch") && <p className="text-xs mt-1">Asegúrate que el backend esté corriendo en http://localhost:3001.</p>}
-          {contextPracticeError.includes("localhost:3001") && !contextPracticeError.includes("Failed to fetch") && <p className="text-xs mt-1">Verifica la conexión con el backend en http://localhost:3001.</p>}
+          <p>Cargando preguntas de práctica...</p>
         </div>
       )}
 
-      {contextPracticeQuestions.length > 0 && !isLoadingContextPractice && !contextPracticeError && (
+      {contextPracticeError && !isLoadingContextPractice && (
+        <div role="alert" className="alert alert-warning shadow-md">
+          <AlertTriangle className="stroke-current shrink-0 h-6 w-6" />
+          <div>
+            <h3 className="font-bold">Error al cargar preguntas</h3>
+            <div className="text-xs">{contextPracticeError}</div>
+            {contextPracticeError.includes("Failed to fetch") && <p className="text-xs mt-1">Asegúrate que el backend esté corriendo en http://localhost:3001.</p>}
+          </div>
+        </div>
+      )}
+
+      {!isLoadingContextPractice && !contextPracticeError && contextPracticeQuestions.length === 0 && (
+         <div role="alert" className="alert alert-info shadow-md">
+          <HelpCircle className="stroke-current shrink-0 h-6 w-6" />
+          <div>
+            <h3 className="font-bold">No hay preguntas de práctica</h3>
+            <div className="text-xs">No se encontraron preguntas para la configuración actual. Probá cambiando la configuración de práctica.</div>
+          </div>
+        </div>
+      )}
+
+      {contextPracticeQuestions.length > 0 && !isLoadingContextPractice && (
          <div className="text-center p-2 bg-green-500/10 text-green-700 rounded-md border border-green-500/30">
            <p className="text-sm">¡Preguntas de práctica listas! Ya puedes</p>
            <Link href="/practice" legacyBehavior>
@@ -186,7 +189,10 @@ export default function HomePage() {
 
       <div className="text-center space-y-3 md:space-y-0 md:flex md:flex-wrap md:justify-center md:gap-3">
         <Link href="/practice" legacyBehavior>
-          <Button className="btn btn-primary btn-lg w-full md:w-auto" disabled={isLoadingContextPractice || contextPracticeQuestions.length === 0}>
+          <Button 
+            className="btn btn-primary btn-lg w-full md:w-auto" 
+            disabled={isLoadingContextPractice || contextPracticeQuestions.length === 0}
+          >
             <BookOpen size={20} className="mr-2" />
             {wordsLearned > 0 ? 'Continuar Práctica' : 'Hacer mi Primera Práctica'}
           </Button>
@@ -276,3 +282,4 @@ export default function HomePage() {
   );
 }
 
+    
