@@ -4,6 +4,7 @@
 import React, { createContext, useContext, ReactNode, useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import type { UserProfile as AppUserProfile } from '@/types';
+import Link from 'next/link'; // Added import
 
 const MOCK_USER_SESSION_KEY = 'speaklyai_mock_user_session_v2'; // Incremented version
 
